@@ -20,6 +20,7 @@ def compute_technical_features(df, cfg):
     df = atr(df, cfg.ATR_PERIOD)
     df = bollinger(df, cfg.BOLL_PERIOD, cfg.BOLL_STD)
 
+    df = df.dropna().reset_index(drop=True)  # drop initial NaNs from indicators
     # fill and drop helper cols
     df.fillna(method="ffill", inplace=True)
     df.fillna(0, inplace=True)
@@ -34,3 +35,4 @@ def zscore_normalize(df, numeric_cols, window=252):
         df[c + "_zn"] = (df[c] - mu) / sd
         df[c + "_zn"] = df[c + "_zn"].fillna(0)
     return df
+
