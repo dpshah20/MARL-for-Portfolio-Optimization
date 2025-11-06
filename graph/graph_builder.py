@@ -1,56 +1,83 @@
-# graph/graph_builder.py
+"""
+graph_builder.py
+
+Functions to build adjacency matrices from returns or embeddings for each window/date.
+Returns adjacency in numpy (N,N). Designed to be called on a per-window basis.
+
+Options:
+ - method='corr_threshold' : compute Pearson correlation of returns in the window and threshold
+ - method='knn' : connect top-k correlated neighbors per node
+"""
+
 import numpy as np
 import pandas as pd
+from typing import List, Tuple, Optional
 
-def build_corr_adj(stock_dfs, date_index, lookback=60, method="knn", thr=0.6, k=8):
+def returns_matrix_from_dfs(dfs: List[pd.DataFrame], slice_dates: List[pd.Timestamp]) -> np.ndarray:
     """
-    stock_dfs: dict{name: df} with columns Date and 'return' or a return column with that name.
-    date_index: pd.Timestamp for which adjacency is computed (end date).
-    lookback: number of days for correlation
-    method: 'knn' or 'threshold'
-    thr: threshold for absolute correlation (if threshold method)
-    k: number neighbors for knn
-    Returns: A_norm (N,N), names (list)
+    Given list of dfs (each has Date, Close), compute returns series per stock for slice_dates.
+    Returns shape (N, W-1) as pct_change over window days.
     """
-    names = list(stock_dfs.keys())
-    mat = []
-    for name in names:
-        df = stock_dfs[name].sort_values("Date").reset_index(drop=True)
-        # pick return series; prefer 'return' then 'ret' columns heuristically
-        if "return" in df.columns:
-            series = df["return"].values
-        else:
-            # look for any column ending with '_ret' or 'ret'
-            ret_cols = [c for c in df.columns if c.endswith("_ret") or c=="ret"]
-            if ret_cols:
-                series = df[ret_cols[0]].values
-            else:
-                raise ValueError(f"No return column in stock df {name}")
-        # find position of date_index
-        idxs = np.where(df["Date"].values <= date_index)[0]
-        if len(idxs) == 0:
-            seq = np.zeros(lookback)
-        else:
-            pos = idxs[-1]
-            start = max(0, pos - lookback + 1)
-            seq = series[start:pos+1]
-            if len(seq) < lookback:
-                seq = np.pad(seq, (lookback - len(seq), 0), 'constant')
-        mat.append(seq)
-    R = np.vstack(mat)  # (N, lookback)
-    corr = np.corrcoef(R)
-    N = corr.shape[0]
-    if method == "threshold":
-        A = (np.abs(corr) >= thr).astype(float)
-    else:
-        A = np.zeros_like(corr)
+    arrs = []
+    for df in dfs:
+        sub = df[df["Date"].isin(slice_dates)].sort_values("Date")
+        prices = sub["Close"].to_numpy(dtype=np.float64)
+        rets = np.diff(prices) / prices[:-1]
+        arrs.append(rets)
+    return np.stack(arrs, axis=0)  # (N, W-1)
+
+def correlation_adj_from_returns(
+    returns_mat: np.ndarray,
+    method: str = "knn",
+    thr: float = 0.6,
+    k: int = 8,
+    absolute: bool = True
+) -> np.ndarray:
+    """
+    Build adjacency from returns matrix.
+    returns_mat: (N, T) where T = window_length-1
+    method: 'corr_threshold' or 'knn'
+    thr: threshold for abs(corr)
+    k: neighbors for knn (per node)
+    absolute: take absolute correlation if True
+    Returns: A (N,N) row-normalized adjacency (rows sum to 1).
+    """
+    N = returns_mat.shape[0]
+    corr = np.corrcoef(returns_mat)  # (N,N)
+    if absolute:
+        corr = np.abs(corr)
+    # fill nan with 0
+    corr = np.nan_to_num(corr, nan=0.0)
+    A = np.zeros_like(corr, dtype=float)
+    if method == "corr_threshold":
+        A[corr >= thr] = 1.0
+    elif method == "knn":
         for i in range(N):
-            # exclude self in knn neighbor selection
-            order = np.argsort(-np.abs(corr[i]))
+            order = np.argsort(-corr[i])  # descending
+            # exclude self in selection if desired
             neighbors = [j for j in order if j != i][:k]
             A[i, neighbors] = 1.0
-            A[i, i] = 1.0
+    else:
+        raise ValueError("Unknown method")
+    # ensure at least self-loop (optional)
     np.fill_diagonal(A, 1.0)
+    # row-normalize
     row_sum = A.sum(axis=1, keepdims=True)
-    A_norm = A / np.maximum(row_sum, 1.0)
-    return A_norm, names
+    row_sum[row_sum == 0] = 1.0
+    A_norm = A / row_sum
+    return A_norm
+
+def build_adj_for_window_from_parquet_dfs(
+    dfs: List[pd.DataFrame],
+    slice_dates: List[pd.Timestamp],
+    method: str = "knn",
+    thr: float = 0.6,
+    k: int = 8,
+    absolute: bool = True
+) -> np.ndarray:
+    """
+    Convenience: compute returns for the slice and return adjacency matrix A (N,N).
+    """
+    returns_mat = returns_matrix_from_dfs(dfs, slice_dates)  # (N, W-1)
+    A = correlation_adj_from_returns(returns_mat, method=method, thr=thr, k=k, absolute=absolute)
+    return A
