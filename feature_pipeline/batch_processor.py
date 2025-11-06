@@ -2,7 +2,7 @@
 import os
 import glob
 from .utils_io import read_csv_flex, save_parquet
-from .fe import compute_technical_features, zscore_normalize
+from .fe import compute_technical_features
 from . import config as cfg
 
 NUMERIC_FEATURES = [
@@ -20,7 +20,6 @@ def process_single_stock(in_path, out_dir, cfg=cfg):
         print(f"  -> No data >= {cfg.START_DATE} for {stock_name}, skipping.")
         return None
     df_feat = compute_technical_features(df, cfg)
-    df_feat = zscore_normalize(df_feat, NUMERIC_FEATURES, window=252)
     out_path = os.path.join(out_dir, f"{stock_name}.parquet")
     save_parquet(df_feat, out_path)
     print(f"  -> saved: {out_path} rows={len(df_feat)}")

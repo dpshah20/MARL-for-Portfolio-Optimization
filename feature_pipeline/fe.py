@@ -27,12 +27,4 @@ def compute_technical_features(df, cfg):
     df.drop(columns=["TR", "DX"], errors="ignore", inplace=True)
     return df
 
-def zscore_normalize(df, numeric_cols, window=252):
-    df = df.copy()
-    for c in numeric_cols:
-        mu = df[c].rolling(window, min_periods=20).mean()
-        sd = df[c].rolling(window, min_periods=20).std().replace(0, 1)
-        df[c + "_zn"] = (df[c] - mu) / sd
-        df[c + "_zn"] = df[c + "_zn"].fillna(0)
-    return df
 
