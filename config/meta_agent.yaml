@@ -1,0 +1,12 @@
+meta_input:
+  macros:
+    - Nifty_50_ret_last
+    - NASDAQ_Composite_Historical_Data_ret_last
+    - S&P_500_Historical_Data_(1)_ret_last
+    - USD_INR_Historical_Data_ret_last
+    - India_VIX_Historical_Data_ret_last
+    - Crude_OIL_WTI_Futures_Historical_Data_ret_last
+  internal:
+    - portfolio_weekly_return
+    - portfolio_weekly_vol
+    - portfolio_weekly_mdd

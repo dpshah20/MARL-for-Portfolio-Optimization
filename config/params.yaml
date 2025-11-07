@@ -1,0 +1,49 @@
+device: "cpu"
+tickers:  # fill with your 32 tickers without file extension
+  - NSE_ABB
+  # add rest...
+window_length: 126
+feature_cols:
+  - Open
+  - High
+  - Low
+  - Close
+  - Volume
+  - SMA20
+  - SMA50
+  - RSI14
+  - MACD
+  - MACD_signal
+  - MACD_hist
+  - ADX
+  - OBV
+  - A_D
+  - ATR
+  - Boll_MA
+  - Boll_Upper
+  - Boll_Lower
+  - Boll_Bandwidth
+  - Crude_OIL_WTI_Futures_Historical_Data_ret
+  - India_VIX_Historical_Data_ret
+  - NASDAQ_Composite_Historical_Data_ret
+  - Nifty_50_Historical_Data_ret
+  - S&P_500_Historical_Data_(1)_ret
+  - USD_INR_Historical_Data_ret
+top_k: 10
+min_cash: 0.05
+per_asset_delta_thresh: 0.01
+turnover_thresh: 0.02
+min_trade_value: 1000.0
+max_asset_weight: 0.20
+lot_size: 1
+replay_capacity: 200000
+batch_size: 256
+weekly_update_steps: 100
+weekly_update_every_days: 5
+encoder:
+  input_dim: 26
+  W: 126
+  d_time: 64
+  d_gnn: 64
+  time_layers: 2
+  gnn_layers: 2
