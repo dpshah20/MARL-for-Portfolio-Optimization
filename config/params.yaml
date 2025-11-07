@@ -1,8 +1,26 @@
+# =============================
+# Global Config for Training
+# =============================
+
 device: "cpu"
-tickers:  # fill with your 32 tickers without file extension
+
+# ---- Universe ----
+tickers:            # your 32 stock parquet base names (no extension)
   - NSE_ABB
-  # add rest...
-window_length: 126
+  # ... add rest of your tickers
+
+# ---- Data Parameters ----
+window: 126         # 6-month lookback
+min_date: "2015-01-01"
+smoke_days: 20      # small test run limit
+train_start: "2015-01-01"
+train_end: "2020-12-31"
+val_start: "2021-01-01"
+val_end: "2022-12-31"
+test_start: "2023-01-01"
+test_end: "2025-10-31"
+
+# ---- Feature Columns ----
 feature_cols:
   - Open
   - High
@@ -29,17 +47,23 @@ feature_cols:
   - Nifty_50_Historical_Data_ret
   - S&P_500_Historical_Data_(1)_ret
   - USD_INR_Historical_Data_ret
+
+# ---- Portfolio Constraints ----
 top_k: 10
 min_cash: 0.05
-per_asset_delta_thresh: 0.01
-turnover_thresh: 0.02
-min_trade_value: 1000.0
 max_asset_weight: 0.20
+per_asset_delta_thresh: 0.01   # hysteresis limit for rebalancing
+turnover_thresh: 0.02          # skip if small changes
+min_trade_value: 1000.0
 lot_size: 1
+
+# ---- Replay Buffer & Training ----
 replay_capacity: 200000
 batch_size: 256
 weekly_update_steps: 100
 weekly_update_every_days: 5
+
+# ---- Encoder Architecture ----
 encoder:
   input_dim: 26
   W: 126
@@ -47,3 +71,8 @@ encoder:
   d_gnn: 64
   time_layers: 2
   gnn_layers: 2
+
+# ---- Checkpointing ----
+checkpoints_dir: "checkpoints"
+save_every_days: 5
+resume: false
