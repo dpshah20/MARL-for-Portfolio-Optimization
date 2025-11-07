@@ -41,7 +41,7 @@ feature_cols:
   - Boll_Upper
   - Boll_Lower
   - Boll_Bandwidth
-  - Crude_OIL_WTI_Futures_Historical_Data_ret
+  - Crude_Oil_WTI_Futures_Historical_Data_ret
   - India_VIX_Historical_Data_ret
   - NASDAQ_Composite_Historical_Data_ret
   - Nifty_50_Historical_Data_ret
@@ -65,14 +65,57 @@ weekly_update_every_days: 5
 
 # ---- Encoder Architecture ----
 encoder:
-  input_dim: 26
+  input_dim: 25
   W: 126
   d_time: 64
   d_gnn: 64
   time_layers: 2
   gnn_layers: 2
 
-# ---- Checkpointing ----
-checkpoints_dir: "checkpoints"
-save_every_days: 5
-resume: false
+# Model parameters
+window_length: 126
+feature_cols: &features
+  - Close
+  - Volume
+  - SMA20
+  - SMA50
+  - RSI14
+  - MACD
+  - MACD_signal
+  - MACD_hist
+  - ADX
+  - OBV
+  - A_D
+  - ATR
+  - Boll_Bandwidth
+
+# Stock universe
+tickers: &tickers
+  - AAPL
+  - MSFT
+  - GOOGL
+  # ... add all your tickers
+
+# Training parameters
+initial_nav: 1000000.0
+top_k: 10
+min_cash: 0.05
+max_asset_weight: 0.20
+turnover_thresh: 0.02
+per_asset_delta_thresh: 0.01
+min_trade_value: 1000.0
+lot_size: 1
+replay_capacity: 200000
+hysteresis_days: 3
+
+# Directories
+logs_dir: "logging"
+checkpoint_dir: "checkpoints"
+
+# Meta-agent parameters
+meta_input_dim: 64
+meta_hidden_dim: 128
+meta_output_dim: 4
+meta_lr: 0.0003
+meta_epochs: 10
+weekly_update_every_days: 5

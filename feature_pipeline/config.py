@@ -1,32 +1,20 @@
-# feature_pipeline/config.py
+"""Feature pipeline configuration"""
+
 import os
+from datetime import datetime
 
-# Paths (edit these to your local paths if needed)
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DATA_DIR = os.path.join(ROOT_DIR, "data")
-STOCKS_DIR = os.path.join(DATA_DIR, "ohlcv_data")
-MACROS_DIR = os.path.join(DATA_DIR, "macros")
-PROCESSED_DIR = os.path.join(ROOT_DIR, "processed")  # place processed/ inside project root
-os.makedirs(PROCESSED_DIR, exist_ok=True)
+# Directories
+STOCKS_DIR = os.path.join("data", "stocks")
+PROCESSED_DIR = "processed"
+MACROS_DIR = os.path.join("data", "macros")
 
-# Date filter
-START_DATE = "2015-01-01"   # discard data before this date
+# Date range
+START_DATE = datetime(2015, 1, 1)
 
-# Indicator params
+# Feature engineering params
+PRICE_COLS = ["Open", "High", "Low", "Close"]
+VOL_COLS = ["Volume"]
+MA_PERIODS = [20, 50]
 RSI_PERIOD = 14
-SMA_SHORT = 20
-SMA_LONG = 50
-MACD_FAST, MACD_SLOW, MACD_SIGNAL = 12, 26, 9
-ADX_PERIOD = 14
+BBANDS_PERIOD = 20
 ATR_PERIOD = 14
-BOLL_PERIOD = 20
-BOLL_STD = 2
-
-# Windowing for encoders
-WINDOW_SIZE = 30
-
-# Graph builder defaults
-GRAPH_LOOKBACK = 60
-GRAPH_METHOD = "knn"   # "threshold" or "knn"
-GRAPH_K = 8
-GRAPH_THRESHOLD = 0.6

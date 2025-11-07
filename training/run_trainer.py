@@ -1,42 +1,51 @@
-# training/run_trainer.py
-"""
-Main orchestrator for training:
- - Loads configs
- - Builds datasets (daily + weekly)
- - Runs daily RL updates and weekly meta-agent updates
- - Handles checkpointing and logging
-"""
+"""Main training orchestrator"""
 
-import argparse, yaml, os
-from training.train_rl_agents import TrainerRL
-from training.train_meta_agent import TrainerMeta
+import argparse
+import yaml
+import os
+import torch
+from datetime import datetime
+
+from training.train_rl_agents import TrainerRL 
+from training.train_meta_agent import MetaTrainer
 from training.checkpoints import CheckpointManager
 from dataset.dataset_windows import windows_generator_from_paths
 from dataset.dataset_meta import build_meta_dataset
-from logging.logger import setup_logger
+from proj_logging.logger import setup_logger
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/params.yaml")
     parser.add_argument("--mode", type=str, default="train", choices=["smoke","train","resume"])
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
 
     # Load configuration
+    if not os.path.exists(args.config):
+        raise FileNotFoundError(f"Config file not found: {args.config}")
+    
     cfg = yaml.safe_load(open(args.config))
+    
+    # Ensure required paths exist
+    os.makedirs(cfg.get("logs_dir", "logging"), exist_ok=True)
+    os.makedirs(cfg.get("checkpoint_dir", "checkpoints"), exist_ok=True)
+    os.makedirs("processed", exist_ok=True)
 
-    # Setup logger and checkpoint manager
+    # Setup components
     logger = setup_logger("training")
-    ckpt_mgr = CheckpointManager(cfg)
-
-    # Initialize RL and meta trainers
-    rl_trainer = TrainerRL(cfg, logger=logger, ckpt_mgr=ckpt_mgr)
-    meta_trainer = TrainerMeta(cfg, logger=logger, ckpt_mgr=ckpt_mgr)
+    ckpt_mgr = CheckpointManager(save_dir=cfg.get("checkpoint_dir", "checkpoints"))
+    
+    # Initialize trainers
+    rl_trainer = TrainerRL(cfg, logger=logger, ckpt_mgr=ckpt_mgr, device=args.device)
+    meta_trainer = MetaTrainer(cfg, logger=logger, ckpt_mgr=ckpt_mgr, device=args.device)
 
     # Load data
-    parquet_paths = [f"processed/{t}_merged.parquet" for t in cfg["tickers"]]
-    feature_cols = cfg["feature_cols"]
-    min_date = cfg.get("min_date", None)
+    parquet_paths = [os.path.join("processed", f"{t}_merged.parquet") for t in cfg["tickers"]]
+    missing = [p for p in parquet_paths if not os.path.exists(p)]
+    if missing:
+        raise FileNotFoundError(f"Missing processed files: {missing}")
 
+    # Run modes
     if args.mode == "smoke":
         rl_trainer.run_smoke(parquet_paths, min_date=min_date, max_days=cfg.get("smoke_days", 20))
         return

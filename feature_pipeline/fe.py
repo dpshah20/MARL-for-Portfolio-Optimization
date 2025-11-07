@@ -1,30 +1,52 @@
-# feature_pipeline/feature_engineering.py
+"""Technical feature computation module"""
+
 import pandas as pd
-from .indicators import sma, rsi, macd, adx, obv, accumulation_distribution, atr, bollinger
+import numpy as np
+from ta.trend import SMAIndicator, ADXIndicator, MACD
+from ta.momentum import RSIIndicator
+from ta.volatility import BollingerBands, AverageTrueRange
+from ta.volume import OnBalanceVolumeIndicator, AccDistIndexIndicator
 
-def compute_technical_features(df, cfg):
-    """
-    Input: DataFrame with Date, Open, High, Low, Close, Volume
-    Returns: DataFrame with indicators (non-normalized)
-    """
+def compute_technical_features(df: pd.DataFrame, cfg) -> pd.DataFrame:
+    """Compute technical indicators for OHLCV data"""
     df = df.copy()
-    # Basic sanity
-    df = df.sort_values("Date").reset_index(drop=True)
-    df = sma(df, cfg.SMA_SHORT)
-    df = sma(df, cfg.SMA_LONG)
-    df = rsi(df, cfg.RSI_PERIOD)
-    df = macd(df, cfg.MACD_FAST, cfg.MACD_SLOW, cfg.MACD_SIGNAL)
-    df = adx(df, cfg.ADX_PERIOD)
-    df = obv(df)
-    df = accumulation_distribution(df)
-    df = atr(df, cfg.ATR_PERIOD)
-    df = bollinger(df, cfg.BOLL_PERIOD, cfg.BOLL_STD)
-
-    df = df.dropna().reset_index(drop=True)  # drop initial NaNs from indicators
-    # fill and drop helper cols
-    df.fillna(method="ffill", inplace=True)
-    df.fillna(0, inplace=True)
-    df.drop(columns=["TR", "DX"], errors="ignore", inplace=True)
+    
+    # Simple Moving Averages
+    for period in cfg.MA_PERIODS:
+        sma = SMAIndicator(df["Close"], window=period)
+        df[f"SMA{period}"] = sma.sma_indicator()
+    
+    # RSI
+    rsi = RSIIndicator(df["Close"], window=cfg.RSI_PERIOD)
+    df["RSI14"] = rsi.rsi()
+    
+    # MACD
+    macd = MACD(df["Close"])
+    df["MACD"] = macd.macd()
+    df["MACD_signal"] = macd.macd_signal()
+    df["MACD_hist"] = macd.macd_diff()
+    
+    # ADX
+    adx = ADXIndicator(df["High"], df["Low"], df["Close"])
+    df["ADX"] = adx.adx()
+    
+    # Volume indicators
+    if "Volume" in df.columns:
+        obv = OnBalanceVolumeIndicator(df["Close"], df["Volume"])
+        df["OBV"] = obv.on_balance_volume()
+        ad = AccDistIndexIndicator(df["High"], df["Low"], df["Close"], df["Volume"])
+        df["A_D"] = ad.acc_dist_index()
+    
+    # Volatility
+    atr = AverageTrueRange(df["High"], df["Low"], df["Close"], window=cfg.ATR_PERIOD)
+    df["ATR"] = atr.average_true_range()
+    
+    bb = BollingerBands(df["Close"], window=cfg.BBANDS_PERIOD)
+    df["Boll_Bandwidth"] = bb.bollinger_pband()
+    
+    # Forward fill NaN values from indicators
+    df = df.fillna(method="ffill").fillna(0)
+    
     return df
 
 

@@ -1,31 +1,56 @@
 # training/train_meta_agent.py
+import os
 import torch
-import torch.optim as optim
 import numpy as np
+from rl_layer.meta_agent import MetaAgent
+from training.checkpoints import CheckpointManager
 
 class MetaTrainer:
-    def __init__(self, meta_agent, lr=3e-4, device="cpu"):
-        self.agent = meta_agent.to(device)
-        self.opt = optim.Adam(self.agent.parameters(), lr=lr)
+    def __init__(self, cfg, logger=None, ckpt_mgr: CheckpointManager = None, device="cpu"):
+        self.cfg = cfg
+        self.logger = logger
+        self.ckpt_mgr = ckpt_mgr
         self.device = device
 
-    def train(self, X: np.ndarray, returns: np.ndarray, epochs: int = 10, batch_size: int = 32):
-        X = torch.tensor(X, dtype=torch.float32).to(self.device)
-        R = torch.tensor(returns, dtype=torch.float32).to(self.device)
-        N = len(X)
-        for e in range(epochs):
-            idx = np.random.permutation(N)
-            for start in range(0, N, batch_size):
-                batch_idx = idx[start:start+batch_size]
-                xb = X[batch_idx]
-                rb = R[batch_idx]
-                rho, w = self.agent(xb)
-                # surrogate objective: favor rho when future returns positive
-                adv = rb - rb.mean()
-                entropy = - (w * (w+1e-12).log()).sum(dim=1)
-                obj = (adv * rho).mean() + 0.01 * (adv * entropy).mean()
-                loss = -obj
-                self.opt.zero_grad()
-                loss.backward()
-                self.opt.step()
-        return
+        # initialize meta agent
+        self.meta_agent = MetaAgent(
+            input_dim=cfg.get("meta_input_dim", 64),
+            hidden_dim=cfg.get("meta_hidden_dim", 128),
+            output_dim=cfg.get("meta_output_dim", 4)
+        ).to(device)
+
+        # optimizer & hyperparams
+        self.lr = cfg.get("meta_lr", 3e-4)
+        self.optimizer = torch.optim.Adam(self.meta_agent.parameters(), lr=self.lr)
+        self.epochs = cfg.get("meta_epochs", 10)
+        self.save_dir = cfg.get("checkpoint_dir", "checkpoints/meta_agent")
+        os.makedirs(self.save_dir, exist_ok=True)
+
+    def step_weekly(self, meta_states, reward_stats):
+        """
+        Perform one weekly meta-agent training step.
+        meta_states: np.ndarray (N, d_meta)
+        reward_stats: np.ndarray (N, num_components)
+        """
+        self.meta_agent.train()
+        x = torch.tensor(meta_states, dtype=torch.float32).to(self.device)
+        y = torch.tensor(reward_stats, dtype=torch.float32).to(self.device)
+
+        preds = self.meta_agent(x)
+        loss = torch.nn.functional.mse_loss(preds, y)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        if self.logger:
+            self.logger.info(f"[MetaTrainer] Weekly meta update complete | Loss={loss.item():.6f}")
+
+    def save_all(self):
+        if self.ckpt_mgr:
+            self.ckpt_mgr.save(
+                step=0,  # meta agent step index not tracked yet
+                actor=None,
+                critic=None,
+                meta_agent=self.meta_agent
+            )

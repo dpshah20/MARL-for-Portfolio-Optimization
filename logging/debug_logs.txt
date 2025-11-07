@@ -1,0 +1,25 @@
+2025-11-07 18:40:22,159 - training - INFO - Logger initialized for training
+2025-11-07 18:45:33,210 - training - INFO - Logger initialized for training
+2025-11-07 18:54:20,350 - training - INFO - Logger initialized for training
+2025-11-07 18:57:57,966 - training - INFO - Logger initialized for training
+2025-11-07 18:58:30,263 - training - INFO - Starting full training loop...
+2025-11-07 19:06:46,428 - training - INFO - Logger initialized for training
+2025-11-07 19:07:25,962 - training - INFO - Starting full training loop...
+2025-11-07 19:20:41,462 - training - INFO - Logger initialized for training
+2025-11-07 19:21:02,564 - training - INFO - Starting full training loop...
+2025-11-07 19:32:17,965 - training - INFO - Logger initialized for training
+2025-11-07 19:32:59,385 - training - INFO - Starting full training loop...
+2025-11-07 19:45:21,297 - training - INFO - Logger initialized for training
+2025-11-07 19:46:10,822 - training - INFO - Starting full training loop...
+2025-11-07 19:46:12 - [RLTrainer] 2015-09-10T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 19:46:12 - [RLTrainer] 2015-09-11T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 19:46:12 - [RLTrainer] 2015-09-14T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 19:46:12 - [RLTrainer] 2015-09-15T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 19:46:12 - [RLTrainer] 2015-09-16T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 20:00:11,099 - training - INFO - Logger initialized for training
+2025-11-07 20:00:56,042 - training - INFO - Starting full training loop...
+2025-11-07 20:00:57 - [RLTrainer] 2015-09-10T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 20:00:57 - [RLTrainer] 2015-09-11T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 20:00:57 - [RLTrainer] 2015-09-14T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 20:00:57 - [RLTrainer] 2015-09-15T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000
+2025-11-07 20:00:57 - [RLTrainer] 2015-09-16T00:00:00.000000000 | NAV=1.0000 | Reward=0.000000

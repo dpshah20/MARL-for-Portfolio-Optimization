@@ -37,6 +37,15 @@ six==1.17.0
 sympy==1.14.0
 torch==2.9.0
 torchvision==0.24.0
+tqdm==4.67.1
 triton==3.5.0
 typing_extensions==4.15.0
 tzdata==2025.2
+numpy
+pandas
+torch
+scikit-learn
+tqdm
+pyarrow  # for parquet support
+ta  # for technical indicators
+pyyaml   # for yaml config
