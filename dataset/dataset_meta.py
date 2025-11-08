@@ -54,3 +54,11 @@ def build_meta_dataset(macros_path: str, rl_logs_path: str):
 
     print(f"[MetaDataset] Loaded {len(df_combined)} weekly samples | Features={len(feature_cols)}")
     return meta_states, reward_stats
+
+def merge_macro_internal(weekly_macro: pd.DataFrame, internal_weekly: pd.DataFrame):
+    """
+    Merges weekly macro data with internal weekly RL stats.
+    """
+    merged = weekly_macro.merge(internal_weekly, on="Date", how="left")
+    merged = merged.fillna(0.0)
+    return merged

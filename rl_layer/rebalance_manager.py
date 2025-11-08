@@ -1,86 +1,93 @@
 # rl_layer/rebalance_manager.py
-import numpy as np
 import math
-from typing import List, Dict, Tuple
+from typing import Dict, Tuple, List
 
-class HysteresisSelector:
-    def __init__(self, tickers: List[str], k: int = 10, hysteresis_days: int = 3):
-        self.tickers = tickers
-        self.k = k
-        self.hysteresis_days = hysteresis_days
-        self.counters = {t: 0 for t in tickers}
-        self.selected = []
-
-    def update(self, ranked_list: List[str]):
-        candidates = set(ranked_list[:self.k])
-        for t in self.tickers:
-            if t in candidates:
-                self.counters[t] += 1
-            else:
-                self.counters[t] = 0
-        new_selected = [t for t, c in self.counters.items() if c >= self.hysteresis_days]
-        # preserve order according to ranked_list
-        new_selected = sorted(new_selected, key=lambda x: ranked_list.index(x) if x in ranked_list else 999)
-        self.selected = new_selected
-        return new_selected
-
-def allocations_to_shares(a_proposed: Dict[str, float],
-                          a_current: Dict[str, float],
+def allocations_to_shares(proposed_alloc: Dict[str, float],
+                          current_alloc: Dict[str, float],
                           prices: Dict[str, float],
                           NAV: float,
                           per_asset_delta_thresh: float = 0.01,
                           turnover_thresh: float = 0.02,
                           min_trade_value: float = 1000.0,
-                          cap: float = 0.20,
+                          cap: float = 0.2,
                           min_cash: float = 0.05,
-                          lot_size: int = 1):
-    tickers = list(a_proposed.keys())
-    deltas = {t: abs(a_proposed[t] - a_current.get(t, 0.0)) for t in tickers}
-    sum_deltas = sum(deltas.values())
-    if sum_deltas < turnover_thresh:
-        # no trade
-        shares = {}
-        executed_alloc = {}
-        for t in tickers:
-            p = prices.get(t, 1.0)
-            shares[t] = int(math.floor((a_current.get(t,0.0)*NAV)/max(1e-8,p)))
-            executed_alloc[t] = (shares[t]*p)/NAV
-        return shares, executed_alloc
-    # enforce caps and investable
-    a = a_proposed.copy()
-    investable = max(0.0, 1.0 - min_cash)
-    total = sum(a.values())
-    if total > 0:
-        scale = min(1.0, investable / total)
-        for t in a:
-            a[t] = min(a[t] * scale, cap)
-    # to shares
-    shares = {}
-    exec_amt = {}
-    for t in tickers:
-        p = prices.get(t, 0.0)
-        amt = a.get(t, 0.0) * NAV
-        if p <= 0 or amt < min_trade_value:
-            s = 0
-        else:
-            s = int(math.floor((amt / p) / lot_size) * lot_size)
-        shares[t] = s
-        exec_amt[t] = s * p
-    total_exec = sum(exec_amt.values())
-    executed_alloc = {t: exec_amt[t] / max(1e-12, NAV) for t in tickers}
-    cash_frac = 1.0 - sum(executed_alloc.values())
-    if cash_frac < min_cash:
-        # scale down proportionally
-        invest_frac = 1.0 - min_cash
-        total_exec_frac = sum(executed_alloc.values())
-        if total_exec_frac > 0:
-            factor = invest_frac / total_exec_frac
-            for t in tickers:
-                executed_alloc[t] = executed_alloc[t] * factor
-            # recompute shares
-            for t in tickers:
-                p = prices.get(t, 1.0)
-                shares[t] = int(math.floor((executed_alloc[t]*NAV)/max(1e-8,p)))
-                exec_amt[t] = shares[t]*p
-            executed_alloc = {t: exec_amt[t] / max(1e-12, NAV) for t in tickers}
-    return shares, executed_alloc
+                          lot_size: int = 1) -> Tuple[Dict[str, int], Dict[str, float]]:
+    """
+    Convert desired allocations -> executed share counts and executed allocation weights.
+    - proposed_alloc: desired weights (0..1)
+    - current_alloc: current allocation weights
+    - prices: dict ticker->price
+    - NAV: current nav
+    Returns (shares_to_trade_dict, executed_allocations)
+    Note: this is a high-level wrapper — actual execution should be done by Portfolio.execute_allocations.
+    """
+    # Apply per-asset cap
+    capped = {t: min(proposed_alloc.get(t, 0.0), cap) for t in proposed_alloc}
+
+    # total desired
+    total = sum(capped.values())
+    if total > 1.0:
+        # scale down to 1.0
+        factor = 1.0 / total
+        for t in capped:
+            capped[t] *= factor
+
+    # compute desired shares
+    desired_shares = {}
+    for t, w in capped.items():
+        price = float(prices.get(t, 0.0)) or 0.0
+        if price <= 0:
+            desired_shares[t] = 0
+            continue
+        value = w * NAV * (1.0 - min_cash)
+        shares = math.floor(value / price / lot_size) * lot_size
+        desired_shares[t] = max(0, int(shares))
+
+    # compute executed_alloc approximate
+    executed_alloc = {}
+    mv = sum(desired_shares[t] * float(prices.get(t, 0.0) or 0.0) for t in desired_shares)
+    total_nav = NAV if NAV > 0 else 1.0
+    for t in desired_shares:
+        executed_alloc[t] = (desired_shares[t] * float(prices.get(t, 0.0) or 0.0)) / total_nav if total_nav > 0 else 0.0
+
+    return desired_shares, executed_alloc
+
+
+class HysteresisSelector:
+    """
+    Simple top-k selector with hysteresis (prevents rapid churning).
+    - keep `k` names selected, allow replacements only after hysteresis_days pass
+    """
+    def __init__(self, tickers: List[str], k: int = 10, hysteresis_days: int = 3):
+        self.tickers = list(tickers)
+        self.k = k
+        self.hysteresis_days = hysteresis_days
+        self.selected = []  # current selected tickers in order
+        self.days_since_change = 0
+
+    def update(self, ranked_list: List[str]):
+        # ranked_list: from best to worst
+        topk = ranked_list[:self.k]
+        if not self.selected:
+            self.selected = topk.copy()
+            self.days_since_change = 0
+            return self.selected
+
+        # if topk equals selected, increment day counter
+        if topk == self.selected:
+            self.days_since_change += 1
+            return self.selected
+
+        # if hysteresis not passed, do not change unless large difference
+        if self.days_since_change < self.hysteresis_days:
+            # compute Jaccard similarity; if low (<0.5), force change
+            inter = len(set(topk).intersection(set(self.selected)))
+            sim = inter / float(self.k)
+            if sim > 0.5:
+                self.days_since_change += 1
+                return self.selected
+
+        # otherwise adopt new topk
+        self.selected = topk.copy()
+        self.days_since_change = 0
+        return self.selected
