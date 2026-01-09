@@ -1,0 +1,7 @@
+2025-11-24 21:47:55,104 | INFO | Starting Session in Mode: smoke
+2025-11-24 21:47:56,778 | INFO | Meta-Agent initialized. Input Dim: 15 (Macros=6)
+2025-11-24 21:47:56,877 | INFO | Loaded 576 weekly macro records.
+2025-11-24 21:47:56,894 | INFO | Starting Data Stream...
+2025-11-24 21:47:58,499 | ERROR | Training crashed: mat1 and mat2 shapes cannot be multiplied (1x9 and 15x128)
+2025-11-24 21:47:58,508 | INFO | Saved checkpoint to checkpoints\ckpt_step_0.pt
+2025-11-24 21:47:58,508 | INFO | Session Saved. Exiting.

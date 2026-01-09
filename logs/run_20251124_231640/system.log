@@ -1,0 +1,38 @@
+2025-11-24 23:16:40,139 | INFO | Starting Session in Mode: smoke
+2025-11-24 23:16:41,934 | INFO | Meta-Agent initialized. Input Dim: 15 (Macros=6)
+2025-11-24 23:16:42,021 | INFO | Loaded 576 weekly macro records.
+2025-11-24 23:16:42,022 | INFO | Found data for ticker: NSE_ABB
+2025-11-24 23:16:42,023 | INFO | Found data for ticker: NSE_ADANIPORTS
+2025-11-24 23:16:42,024 | INFO | Found data for ticker: NSE_ADANIPOWER
+2025-11-24 23:16:42,024 | INFO | Found data for ticker: NSE_AMBUJACEM
+2025-11-24 23:16:42,025 | INFO | Found data for ticker: NSE_ASIANPAINT
+2025-11-24 23:16:42,027 | INFO | Found data for ticker: NSE_BAJAJ_AUTO
+2025-11-24 23:16:42,027 | INFO | Found data for ticker: NSE_BEL
+2025-11-24 23:16:42,028 | INFO | Found data for ticker: NSE_BHARTIARTL
+2025-11-24 23:16:42,029 | INFO | Found data for ticker: NSE_CIPLA
+2025-11-24 23:16:42,031 | INFO | Found data for ticker: NSE_DLF
+2025-11-24 23:16:42,031 | INFO | Found data for ticker: NSE_GODREJCP
+2025-11-24 23:16:42,032 | INFO | Found data for ticker: NSE_HDFCBANK
+2025-11-24 23:16:42,033 | INFO | Found data for ticker: NSE_HINDUNILVR
+2025-11-24 23:16:42,033 | INFO | Found data for ticker: NSE_ICICIBANK
+2025-11-24 23:16:42,034 | INFO | Found data for ticker: NSE_INDHOTEL
+2025-11-24 23:16:42,035 | INFO | Found data for ticker: NSE_INFY
+2025-11-24 23:16:42,035 | INFO | Found data for ticker: NSE_JSWSTEEL
+2025-11-24 23:16:42,036 | INFO | Found data for ticker: NSE_KOTAKBANK
+2025-11-24 23:16:42,036 | INFO | Found data for ticker: NSE_LT
+2025-11-24 23:16:42,037 | INFO | Found data for ticker: NSE_ONGC
+2025-11-24 23:16:42,037 | INFO | Found data for ticker: NSE_PIDILITIND
+2025-11-24 23:16:42,037 | INFO | Found data for ticker: NSE_RELIANCE
+2025-11-24 23:16:42,037 | INFO | Found data for ticker: NSE_SBIN
+2025-11-24 23:16:42,037 | INFO | Found data for ticker: NSE_SOLARINDS
+2025-11-24 23:16:42,038 | INFO | Found data for ticker: NSE_SUNPHARMA
+2025-11-24 23:16:42,038 | INFO | Found data for ticker: NSE_TATAPOWER
+2025-11-24 23:16:42,038 | INFO | Found data for ticker: NSE_TCS
+2025-11-24 23:16:42,038 | INFO | Found data for ticker: NSE_TITAN
+2025-11-24 23:16:42,039 | INFO | Found data for ticker: NSE_TRENT
+2025-11-24 23:16:42,040 | INFO | Found data for ticker: NSE_TVSMOTOR
+2025-11-24 23:16:42,041 | INFO | Found data for ticker: NSE_ULTRACEMCO
+2025-11-24 23:16:42,042 | INFO | Starting Data Stream...
+2025-11-24 23:16:43,527 | ERROR | Training crashed: mat1 and mat2 shapes cannot be multiplied (1x9 and 15x128)
+2025-11-24 23:16:43,538 | INFO | Saved checkpoint to checkpoints\ckpt_step_0.pt
+2025-11-24 23:16:43,538 | INFO | Session Saved. Exiting.

@@ -1,21 +1,8 @@
 import math
 import os
-import json
-from typing import Dict
+from typing import Dict, Tuple, List
 from datetime import datetime
 
-# ------------------------------------------------------------------------- #
-# Lightweight logging utility
-# ------------------------------------------------------------------------- #
-def append_jsonl(path: str, record: dict):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "a") as f:
-        f.write(json.dumps(record, default=str) + "\n")
-
-
-# ------------------------------------------------------------------------- #
-# Portfolio Execution Class
-# ------------------------------------------------------------------------- #
 class Portfolio:
     """
     Portfolio bookkeeping & execution manager.
@@ -26,24 +13,15 @@ class Portfolio:
       - nav: normalized NAV (starting 1000)
     """
 
-    def __init__(self, tickers, initial_nav: float = 1000.0, initial_cash: float = 1_00_00_000.0, log_dir: str = "logs"):
+    def __init__(self, tickers, initial_nav: float = 1000.0, initial_cash: float = 1_00_00_000.0):
         self.tickers = list(tickers)
         self.holdings = {t: 0 for t in self.tickers}
         self.allocations = {t: 0.0 for t in self.tickers}
+        
         self.cash = float(initial_cash)
         self.initial_cash = float(initial_cash)
         self.nav = float(initial_nav)
-
-        # setup execution log path
-        self.log_path = os.path.join(log_dir, "execution_layer_logs.jsonl")
-        os.makedirs(log_dir, exist_ok=True)
-
-        append_jsonl(self.log_path, {
-            "event": "init_portfolio",
-            "normalized_nav": self.nav,
-            "cash": self.cash,
-            "tickers_count": len(self.tickers)
-        })
+        self.total_value = float(initial_cash)
 
     # --------------------------------------------------------------------- #
     def _market_value(self, prices: Dict[str, float]) -> float:
@@ -56,126 +34,132 @@ class Portfolio:
         NAV = 1000 * (current_value / initial_cash)
         """
         mv = self._market_value(prices)
-        total_value = self.cash + mv
-        self.nav = 1000.0 * (total_value / self.initial_cash)
+        self.total_value = self.cash + mv
+        self.nav = 1000.0 * (self.total_value / self.initial_cash)
         return self.nav
 
     # --------------------------------------------------------------------- #
     def execute_allocations(self,
                             target_weights: Dict[str, float],
                             prices: Dict[str, float],
+                            target_cash: float,  # <--- CHANGED: Dynamic Rho from Meta-Agent
                             lot_size: int = 1,
-                            min_trade_value: float = 0.0,
-                            cap_per_asset: float = 1.0,
-                            min_cash: float = 0.0,
-                            date: str = None) -> Dict[str, float]:
+                            min_trade_value: float = 1000.0) -> Tuple[Dict[str, float], List[dict]]:
         """
-        Execute trades to reach target_weights.
-        Uses actual rupee values but logs normalized NAV.
+        Execute trades to reach target_weights, STRICTLY respecting target_cash.
+        
+        Args:
+            target_weights: Desired weights for STOCKS (sum should be <= 1.0)
+            prices: Current market prices
+            target_cash: Fraction of NAV to hold in cash (e.g., 0.1 to 0.9)
+            lot_size: Minimum share lot size
+            min_trade_value: Minimum value to trigger a trade
+            
+        Returns:
+            executed_allocs: The actual resulting weights
+            trades_list: List of dictionaries describing executed trades
         """
-        total_value = self._market_value(prices) + self.cash
-        investable_value = max(0.0, total_value * (1.0 - min_cash))
+        # 1. Calculate Total Capital (Cash + Stock Value)
+        market_val = self._market_value(prices)
+        self.total_value = market_val + self.cash
 
-        # Enforce caps and normalization
-        tgt_w = {t: min(target_weights.get(t, 0.0), cap_per_asset) for t in self.tickers}
-        total_tgt = sum(tgt_w.values())
-        if total_tgt > 1.0:
-            scale = 1.0 / total_tgt
-            for t in tgt_w:
-                tgt_w[t] *= scale
-
-        # Determine target shares
-        desired_shares = {}
+        # 2. Determine Investable Portion
+        # If target_cash = 0.50 (50%), we must hold 50% in cash.
+        # So we can only invest the remaining 50%.
+        investable_capital = self.total_value * (1.0 - target_cash)
+        
+        # 3. Calculate Target Rupee Value per Stock
+        # target_weights from Actor usually sum to ~1.0 (Softmax).
+        # We map that 1.0 to the "Investable Capital" portion only.
+        desired_values = {}
         for t in self.tickers:
-            p = float(prices.get(t, 0.0)) or 0.0
-            if p <= 0:
-                desired_shares[t] = self.holdings.get(t, 0)
-                continue
-            desired_value = tgt_w[t] * investable_value
-            shares = math.floor(desired_value / p / lot_size) * lot_size
-            desired_shares[t] = max(0, int(shares))
+            w = target_weights.get(t, 0.0)
+            desired_values[t] = w * investable_capital
 
-        # Compute trade deltas
-        trades = {t: desired_shares[t] - self.holdings.get(t, 0) for t in self.tickers}
-
-        # Filter out small trades
-        final_trades = {}
+        # 4. Calculate Shares to Buy/Sell
+        trades_diff = {}
         for t in self.tickers:
-            p = float(prices.get(t, 0.0)) or 0.0
-            value = abs(trades[t]) * p
-            final_trades[t] = trades[t] if value >= min_trade_value else 0
-
-        # Execute trades
-        trade_records = []
-        for t, delta in final_trades.items():
-            if delta == 0:
-                continue
             price = float(prices.get(t, 0.0)) or 0.0
-            trade_value = delta * price
-            old_cash = self.cash
+            if price <= 0: 
+                continue
+            
+            current_shares = self.holdings.get(t, 0)
+            # Floor to lot size
+            target_shares = math.floor(desired_values[t] / price / lot_size) * lot_size
+            
+            delta = int(target_shares - current_shares)
+            
+            # Filter tiny trades to save commissions/noise
+            if abs(delta * price) >= min_trade_value:
+                trades_diff[t] = delta
 
-            # Handle buy/sell cash update
-            if trade_value > 0 and trade_value > self.cash:
-                # Not enough cash -> scale down
-                affordable_shares = math.floor(self.cash / price / lot_size) * lot_size
-                delta = affordable_shares
-                trade_value = delta * price
+        # 5. Execute Trades
+        # Note: We process all trades, but practically sells (negative delta) add cash immediately,
+        # allowing buys (positive delta) to proceed.
+        trades_list = []
+        
+        for t, delta in trades_diff.items():
+            price = float(prices.get(t, 0.0))
+            if price <= 0: continue
 
+            cost = delta * price
+            commission = abs(cost) * 0.001 # Assume 0.1% commission
+            total_cost = cost + commission
+            
+            # Safety check: Do we have cash for a BUY?
+            if delta > 0 and total_cost > self.cash:
+                # Skip buy if insufficient funds 
+                # (In a real system, we'd scale down, here we skip for safety)
+                continue
+                
             self.holdings[t] += delta
-            self.cash -= trade_value
-
-            trade_records.append({
+            self.cash -= total_cost
+            
+            trades_list.append({
                 "ticker": t,
+                "action": "BUY" if delta > 0 else "SELL",
+                "shares": delta,
                 "price": price,
-                "delta_shares": delta,
-                "trade_value": trade_value,
-                "old_cash": old_cash,
-                "new_cash": self.cash
+                "value": cost,
+                "comm": commission
             })
 
-        # Recalculate allocations & NAV
-        mv = self._market_value(prices)
-        total_value = mv + self.cash
+        # 6. Update Final Stats
+        new_mv = self._market_value(prices)
+        self.total_value = new_mv + self.cash
+        # NAV normalized to initial 1000
+        self.nav = 1000.0 * (self.total_value / self.initial_cash)
+        
+        # Calculate actual executed weights (for logging)
+        executed_allocs = {}
         for t in self.tickers:
-            price = float(prices.get(t, 0.0)) or 0.0
-            self.allocations[t] = (self.holdings[t] * price) / total_value if total_value > 0 else 0.0
+            val = self.holdings[t] * prices.get(t, 0)
+            executed_allocs[t] = val / self.total_value if self.total_value > 0 else 0.0
+            self.allocations[t] = executed_allocs[t]
 
-        self.nav = 1000.0 * (total_value / self.initial_cash)
-
-        append_jsonl(self.log_path, {
-            "timestamp": date or datetime.now().isoformat(),
-            "event": "execute_trades",
-            "nav_normalized": self.nav,
-            "cash": self.cash,
-            "total_value": total_value,
-            "market_value": mv,
-            "executed_allocations": self.allocations,
-            "trades": trade_records
-        })
-
-        return dict(self.allocations)
+        # Return actual executed weights and trade list for the central logger
+        return executed_allocs, trades_list
 
     # --------------------------------------------------------------------- #
     def apply_open_to_open(self,
                            prev_prices: Dict[str, float],
-                           next_prices: Dict[str, float],
-                           date: str = None) -> float:
+                           next_prices: Dict[str, float]) -> float:
         """
-        Compute open-to-open portfolio return and update NAV (normalized).
+        Compute open-to-open portfolio return based on price changes.
+        Update NAV based on the new prices (next_prices).
         """
-        prev_total = self._market_value(prev_prices) + self.cash
-        mv_next = self._market_value(next_prices)
-        next_total = self.cash + mv_next
+        # Value at start (using previous prices)
+        prev_total = self.cash + self._market_value(prev_prices)
+        
+        # Value at end (using next prices) - Holdings haven't changed yet
+        next_total = self.cash + self._market_value(next_prices)
+        
+        # Return calculation
         ret = (next_total / prev_total - 1.0) if prev_total > 0 else 0.0
-
+        
         # Update normalized NAV
-        self.nav = 1000.0 * (next_total / self.initial_cash)
-
-        append_jsonl(self.log_path, {
-            "timestamp": date or datetime.now().isoformat(),
-            "event": "daily_return",
-            "nav_before": 1000.0 * (prev_total / self.initial_cash),
-            "nav_after": self.nav,
-            "daily_return": ret
-        })
+        self.total_value = next_total
+        self.nav = 1000.0 * (self.total_value / self.initial_cash)
+        
+        # Removed internal logging - handled by Trainer
         return ret

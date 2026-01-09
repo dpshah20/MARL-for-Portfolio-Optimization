@@ -1,22 +1,16 @@
-# training/run_trainer.py
-"""
-Main orchestrator for training:
- - Loads configs
- - Streams sliding windows
- - Runs daily RL updates and weekly meta-agent updates
- - Handles checkpointing and logging
-"""
 import argparse
 import yaml
 import os
-import pandas as pd
+import glob
+import torch
 
+# Import our new components
 from training.train_rl_agents import TrainerRL
 from training.train_meta_agent import MetaTrainer
 from training.checkpoints import CheckpointManager
 from dataset.dataset_windows import windows_generator_from_paths
-from dataset.dataset_meta import build_meta_dataset
-from proj_logging.logger import setup_logger
+from proj_logging.logger import RunLogger
+from rl_layer.meta_agent import MetaAgent
 
 def main():
     parser = argparse.ArgumentParser()
@@ -24,72 +18,129 @@ def main():
     parser.add_argument("--mode", type=str, default="train", choices=["smoke", "train", "resume"])
     args = parser.parse_args()
 
+    # --- 1. Load Configurations ---
+    if not os.path.exists(args.config):
+        print(f"Error: Config file '{args.config}' not found.")
+        return
+
     cfg = yaml.safe_load(open(args.config))
-    logger = setup_logger("training")
+    
+    # Attempt to load meta-agent specific config if it exists
+    meta_config_path = "configs/meta_agent.yaml"
+    if os.path.exists(meta_config_path):
+        meta_cfg = yaml.safe_load(open(meta_config_path))
+        cfg.update(meta_cfg) # Merge settings
+    
+    # Override defaults for specific modes
+    if args.mode == "smoke":
+        cfg["batch_size"] = 32 # Ensure learning happens quickly in smoke test
+        cfg["replay_capacity"] = 1000
+
+    # --- 2. Setup Infrastructure ---
+    # Initialize the new hierarchical logger
+    logger = RunLogger(base_dir="logs")
+    logger.info(f"Starting Session in Mode: {args.mode}")
+    
     ckpt_dir = cfg.get("checkpoint_dir", "checkpoints")
-    ckpt_mgr = CheckpointManager(ckpt_dir)
+    ckpt_mgr = CheckpointManager(ckpt_dir, logger=logger)
 
-    logger.info("Logger initialized for training")
+    # --- 3. Initialize The Brain (Meta-Agent) ---
+    # Input Dim = Count(Macro Features) + 4 (Prev Week Stats) + 5 (Prev Action Logits)
+    # We need to know how many macro columns we are using
+    macro_cols = cfg.get("meta_agent", {}).get("meta_input", {}).get("macros", [])
+    # If not in config, default to 6 standard macro features
+    if not macro_cols: 
+        macro_cols = ["macro_1", "macro_2", "macro_3", "macro_4", "macro_5", "macro_6"]
+        
+    meta_input_dim = len(macro_cols) + 4 + 5
+    
+    device = cfg.get("device", "cpu")
+    meta_agent = MetaAgent(input_dim=meta_input_dim, hidden_dim=128).to(device)
+    meta_trainer = MetaTrainer(meta_agent, lr=cfg.get("meta_lr", 1e-3))
+    
+    logger.info(f"Meta-Agent initialized. Input Dim: {meta_input_dim} (Macros={len(macro_cols)})")
 
-    # Initialize trainers
-    rl_trainer = TrainerRL(cfg, logger=logger, ckpt_mgr=ckpt_mgr, device=cfg.get("device", "cpu"))
-    meta_trainer = MetaTrainer(cfg, logger=logger, ckpt_mgr=ckpt_mgr, device=cfg.get("device", "cpu"))
+    # --- 4. Initialize The Body (RL Trainer) ---
+    rl_trainer = TrainerRL(cfg, logger=logger, ckpt_mgr=ckpt_mgr, device=device)
+    
+    # CONNECT THE BRAIN TO THE BODY
+    rl_trainer.attach_meta_trainer(meta_trainer)
 
-    # prepare parquet paths (expects processed/{TICKER}_merged.parquet)
+    # --- 5. Resume Logic ---
+    start_step = 0
+    if args.mode == "resume":
+        start_step = ckpt_mgr.load_latest(
+            actor=rl_trainer.agent.actor, 
+            critic=rl_trainer.agent.critic, 
+            meta_agent=meta_agent
+        )
+        logger.info(f"Resumed training from step {start_step}")
+
+    # --- 6. Data Preparation ---
+    # Expects parquet files in 'processed/' folder
     parquet_paths = []
     for t in cfg["tickers"]:
-        p = f"processed/{t}_merged.parquet"
+        # Try exact match first
+        p = f"processed/{t}, 1D (1)_merged.parquet"
         if os.path.exists(p):
             parquet_paths.append(p)
+            logger.info(f"Found data for ticker: {t}")
         else:
-            # try to find similar filename
-            import glob
-            matches = glob.glob(f"processed/{t}*merged.parquet") + glob.glob(f"processed/{t}*.parquet")
+            # Fallback search
+            matches = glob.glob(f"processed/{t}*.parquet")
             if matches:
                 parquet_paths.append(matches[0])
             else:
-                logger.warning(f"No parquet found for ticker {t}; expected {p}")
+                logger.info(f"[Warning] No data found for ticker: {t}")
 
-    feature_cols = cfg["feature_cols"]
-    window = cfg.get("window_length", cfg.get("encoder", {}).get("W", 126))
-
-    if args.mode == "smoke":
-        logger.info("Running smoke test")
-        rl_trainer.run_smoke(parquet_paths, min_date=cfg.get("min_date", None), max_days=cfg.get("smoke_days", 20))
+    if not parquet_paths:
+        logger.error("No valid parquet files found in 'processed/'. Exiting.")
         return
 
-    if args.mode == "resume":
-        logger.info("Resuming from latest checkpoint (if any)")
-        ckpt_mgr.load_latest()
+    # --- 7. Training Loop ---
+    logger.info("Starting Data Stream...")
+    
+    # Define run limits
+    max_steps = float('inf')
+    if args.mode == "smoke":
+        max_steps = 50 # Run enough steps to trigger at least one batch update
+    
+    feature_cols = cfg["feature_cols"]
+    window_len = cfg.get("window_length", 126)
+    min_date = cfg.get("min_date", "2015-01-01")
 
-    # Training loop (stream windows)
-    logger.info("Starting full training loop...")
-    step = 0
-    for date, X in windows_generator_from_paths(parquet_paths, feature_cols, W=window, min_date=cfg.get("min_date", None)):
-        rl_trainer.step_daily(X, date)
-        step += 1
+    # Create Generator
+    data_gen = windows_generator_from_paths(parquet_paths, feature_cols, W=window_len, min_date=min_date)
+    
+    step = start_step
+    try:
+        for date, X in data_gen:
+            # Stop if we exceeded max steps (for smoke test)
+            if step >= start_step + max_steps:
+                logger.info("Max steps reached. Stopping.")
+                break
 
-        # weekly meta update (trigger by days count or custom rule)
-        if step % cfg.get("weekly_update_every_days", 5) == 0:
-            try:
-                macros_path = cfg.get("macros_weekly_path", "data/macros/combined_macros_weekly.csv")
-                rl_logs_path = cfg.get("rl_logs_path", "logging/training_logs.csv")
-                meta_states, reward_stats = build_meta_dataset(macros_path=macros_path, rl_logs_path=rl_logs_path)
-                if len(meta_states) > 0:
-                    meta_trainer.train(meta_states, reward_stats, epochs=cfg.get("weekly_update_steps", 10))
-                    logger.info(f"[MetaTrainer] weekly update performed at step {step}")
-            except Exception as e:
-                logger.exception(f"Meta update failed: {e}")
+            # --- THE MAIN STEP ---
+            # 1. Meta-Update (if Monday)
+            # 2. Trade Execution (using Meta constraints)
+            # 3. RL Update (using Meta rewards)
+            rl_trainer.step_daily(X, str(date), step)
+            
+            step += 1
 
-        # periodic checkpointing
-        if step % cfg.get("checkpoint_every_steps", 50) == 0:
-            ckpt_mgr.save(step, actor=rl_trainer.agent.actor, critic=rl_trainer.agent.critic, meta_agent=meta_trainer.meta_agent)
-            logger.info(f"Checkpoint saved at step {step}")
+            # Periodic Checkpoint
+            if step % cfg.get("checkpoint_every_steps", 500) == 0:
+                ckpt_mgr.save(step, actor=rl_trainer.agent.actor, critic=rl_trainer.agent.critic, meta_agent=meta_agent)
 
-    # final save
-    ckpt_mgr.save(step, actor=rl_trainer.agent.actor, critic=rl_trainer.agent.critic, meta_agent=meta_trainer.meta_agent)
-    logger.info("Training loop finished.")
-
+    except KeyboardInterrupt:
+        logger.info("Training interrupted by user.")
+    except Exception as e:
+        logger.error(f"Training crashed: {e}")
+        raise e
+    finally:
+        # Final Save on Exit
+        ckpt_mgr.save(step, actor=rl_trainer.agent.actor, critic=rl_trainer.agent.critic, meta_agent=meta_agent)
+        logger.info("Session Saved. Exiting.")
 
 if __name__ == "__main__":
     main()

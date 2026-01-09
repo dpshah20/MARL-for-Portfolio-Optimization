@@ -1,0 +1,39 @@
+2025-11-25 22:58:53,930 | INFO | Starting Session in Mode: smoke
+2025-11-25 22:59:00,755 | INFO | Meta-Agent initialized. Input Dim: 15 (Macros=6)
+2025-11-25 22:59:00,916 | INFO | [TrainerRL] Loaded 576 weekly macro records.
+2025-11-25 22:59:00,917 | INFO | [TrainerRL] Meta-Agent will use 6 macro features.
+2025-11-25 22:59:00,919 | INFO | Found data for ticker: NSE_ABB
+2025-11-25 22:59:00,920 | INFO | Found data for ticker: NSE_ADANIPORTS
+2025-11-25 22:59:00,921 | INFO | Found data for ticker: NSE_ADANIPOWER
+2025-11-25 22:59:00,922 | INFO | Found data for ticker: NSE_AMBUJACEM
+2025-11-25 22:59:00,923 | INFO | Found data for ticker: NSE_ASIANPAINT
+2025-11-25 22:59:00,925 | INFO | Found data for ticker: NSE_BAJAJ_AUTO
+2025-11-25 22:59:00,926 | INFO | Found data for ticker: NSE_BEL
+2025-11-25 22:59:00,927 | INFO | Found data for ticker: NSE_BHARTIARTL
+2025-11-25 22:59:00,928 | INFO | Found data for ticker: NSE_CIPLA
+2025-11-25 22:59:00,929 | INFO | Found data for ticker: NSE_DLF
+2025-11-25 22:59:00,929 | INFO | Found data for ticker: NSE_GODREJCP
+2025-11-25 22:59:00,929 | INFO | Found data for ticker: NSE_HDFCBANK
+2025-11-25 22:59:00,931 | INFO | Found data for ticker: NSE_HINDUNILVR
+2025-11-25 22:59:00,932 | INFO | Found data for ticker: NSE_ICICIBANK
+2025-11-25 22:59:00,932 | INFO | Found data for ticker: NSE_INDHOTEL
+2025-11-25 22:59:00,933 | INFO | Found data for ticker: NSE_INFY
+2025-11-25 22:59:00,934 | INFO | Found data for ticker: NSE_JSWSTEEL
+2025-11-25 22:59:00,935 | INFO | Found data for ticker: NSE_KOTAKBANK
+2025-11-25 22:59:00,936 | INFO | Found data for ticker: NSE_LT
+2025-11-25 22:59:00,937 | INFO | Found data for ticker: NSE_ONGC
+2025-11-25 22:59:00,938 | INFO | Found data for ticker: NSE_PIDILITIND
+2025-11-25 22:59:00,940 | INFO | Found data for ticker: NSE_RELIANCE
+2025-11-25 22:59:00,941 | INFO | Found data for ticker: NSE_SBIN
+2025-11-25 22:59:00,943 | INFO | Found data for ticker: NSE_SOLARINDS
+2025-11-25 22:59:00,945 | INFO | Found data for ticker: NSE_SUNPHARMA
+2025-11-25 22:59:00,946 | INFO | Found data for ticker: NSE_TATAPOWER
+2025-11-25 22:59:00,948 | INFO | Found data for ticker: NSE_TCS
+2025-11-25 22:59:00,949 | INFO | Found data for ticker: NSE_TITAN
+2025-11-25 22:59:00,950 | INFO | Found data for ticker: NSE_TRENT
+2025-11-25 22:59:00,951 | INFO | Found data for ticker: NSE_TVSMOTOR
+2025-11-25 22:59:00,954 | INFO | Found data for ticker: NSE_ULTRACEMCO
+2025-11-25 22:59:00,955 | INFO | Starting Data Stream...
+2025-11-25 22:59:14,404 | INFO | Max steps reached. Stopping.
+2025-11-25 22:59:14,418 | INFO | Saved checkpoint to checkpoints\ckpt_step_50.pt
+2025-11-25 22:59:14,420 | INFO | Session Saved. Exiting.

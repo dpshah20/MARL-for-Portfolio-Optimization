@@ -1,69 +1,62 @@
-# training/train_meta_agent.py
-import os
 import torch
+import torch.optim as optim
 import numpy as np
 
-from rl_layer.meta_agent import MetaAgent
-
 class MetaTrainer:
-    def __init__(self, cfg, logger=None, ckpt_mgr=None, device="cpu"):
-        self.cfg = cfg
-        self.logger = logger
-        self.ckpt_mgr = ckpt_mgr
-        self.device = device
+    """
+    Trainer for the Meta-Agent using REINFORCE (Policy Gradient).
+    Updates the policy based on the realized Weekly Return compared to a Baseline.
+    """
+    def __init__(self, meta_agent, lr=1e-3, gamma=0.99, entropy_coef=0.05):
+        self.agent = meta_agent
+        self.optimizer = optim.Adam(self.agent.parameters(), lr=lr)
+        self.gamma = gamma
+        self.entropy_coef = entropy_coef
+        
+        # Baseline for Variance Reduction (EMA of weekly returns)
+        # This helps the agent distinguish "good" weeks from "lucky" weeks.
+        self.baseline = 0.0
+        self.alpha = 0.1  # Smoothing factor for baseline
 
-        in_dim = cfg.get("meta_input_dim", cfg.get("encoder", {}).get("d_gnn", 64))
-        hidden = cfg.get("meta_hidden_dim", 128)
-        out_dim = cfg.get("meta_output_dim", 4)
+    def update_policy(self, weekly_return: float, log_prob: torch.Tensor, entropy: torch.Tensor):
+        """
+        Performs one REINFORCE update step at the end of the week.
+        
+        Args:
+            weekly_return (float): The actual return achieved this week (NAV_end / NAV_start - 1).
+            log_prob (Tensor): The log probability of the action that was taken on Monday.
+            entropy (Tensor): The entropy of the policy distribution (for exploration).
+            
+        Returns:
+            loss (float): The total training loss.
+            advantage (float): How much better the return was compared to the baseline.
+        """
+        # 1. Update Baseline (Exponential Moving Average)
+        if self.baseline == 0.0:
+            self.baseline = weekly_return
+        else:
+            self.baseline = (1 - self.alpha) * self.baseline + self.alpha * weekly_return
 
-        self.meta_agent = MetaAgent(input_dim=in_dim, hidden_dim=hidden, output_dim=out_dim).to(self.device)
-        self.optimizer = torch.optim.Adam(self.meta_agent.parameters(), lr=cfg.get("meta_lr", 3e-4))
-        self.epochs = cfg.get("meta_epochs", 5)
-        self.save_dir = cfg.get("checkpoint_dir", "checkpoints/meta_agent")
-        os.makedirs(self.save_dir, exist_ok=True)
+        # 2. Compute Advantage
+        # If return > baseline, advantage is positive -> Increase prob of action.
+        # If return < baseline, advantage is negative -> Decrease prob of action.
+        advantage = weekly_return - self.baseline
 
-    def train(self, X: np.ndarray, returns: np.ndarray, epochs: int = None, batch_size: int = 32):
-        if epochs is None:
-            epochs = self.epochs
-        self.meta_agent.train()
-        X_t = torch.tensor(X, dtype=torch.float32).to(self.device)
-        Y_t = torch.tensor(returns, dtype=torch.float32).to(self.device)
+        # 3. Compute Loss
+        # Policy Gradient Loss: - (Advantage * log_prob)
+        # Entropy Loss: - (Entropy_Coef * Entropy) -> Encourages higher entropy (exploration)
+        policy_loss = -(advantage * log_prob)
+        entropy_loss = - (self.entropy_coef * entropy)
+        
+        total_loss = policy_loss + entropy_loss
 
-        N = len(X_t)
-        if N == 0:
-            if self.logger:
-                self.logger.warning("[MetaTrainer] empty meta dataset - skipping")
-            return
+        # 4. Backpropagation
+        self.optimizer.zero_grad()
+        total_loss.backward()
+        
+        # Clip gradients to prevent instability
+        torch.nn.utils.clip_grad_norm_(self.agent.parameters(), 1.0)
+        
+        self.optimizer.step()
 
-        for epoch in range(epochs):
-            idx = np.random.permutation(N)
-            for start in range(0, N, batch_size):
-                batch_idx = idx[start:start+batch_size]
-                xb = X_t[batch_idx]
-                yb = Y_t[batch_idx]
-
-                rho, w = self.meta_agent(xb)
-                # simple supervised objective: predict reward_stats if provided (we do mse on yb)
-                # if yb shape differs, adapt loss accordingly
-                pred = torch.cat([rho, w], dim=1) if w is not None else rho
-                # if dimensions mismatch, reduce to mse on first columns
-                tgt = yb
-                if pred.shape != tgt.shape:
-                    # align shapes by padding/trunc
-                    L = min(pred.shape[1], tgt.shape[1])
-                    loss = torch.nn.functional.mse_loss(pred[:, :L], tgt[:, :L])
-                else:
-                    loss = torch.nn.functional.mse_loss(pred, tgt)
-
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-            if self.logger:
-                self.logger.info(f"[MetaTrainer] epoch {epoch+1}/{epochs} loss={loss.item():.6f}")
-
-    def save(self, path=None):
-        if path is None:
-            path = os.path.join(self.save_dir, "meta_agent.pt")
-        torch.save(self.meta_agent.state_dict(), path)
-        if self.logger:
-            self.logger.info(f"[MetaTrainer] saved meta_agent to {path}")
+        return total_loss.item(), advantage

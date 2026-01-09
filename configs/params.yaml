@@ -4,8 +4,8 @@
 
 device: "cpu"
 
-# ---- Universe ----
-tickers:            # your 32 stock parquet base names (no extension)
+# ---- Universe (30 Stocks) ----
+tickers:
   - NSE_ABB
   - NSE_ADANIPORTS
   - NSE_ADANIPOWER
@@ -37,20 +37,14 @@ tickers:            # your 32 stock parquet base names (no extension)
   - NSE_TRENT
   - NSE_TVSMOTOR
   - NSE_ULTRACEMCO
-  # ... add rest of your tickers
 
 # ---- Data Parameters ----
-window: 126         # 6-month lookback
+window_length: 126
 min_date: "2015-01-01"
-smoke_days: 20      # small test run limit
-train_start: "2015-01-01"
-train_end: "2020-12-31"
-val_start: "2021-01-01"
-val_end: "2022-12-31"
-test_start: "2023-01-01"
-test_end: "2025-10-31"
+smoke_days: 100
+macros_weekly_path: "data/macros/combined_macros_weekly.csv"
 
-# ---- Feature Columns ----
+# ---- Feature Columns (Daily) ----
 feature_cols:
   - Open
   - High
@@ -80,15 +74,27 @@ feature_cols:
 
 # ---- Portfolio Constraints ----
 top_k: 10
-min_cash: 0.05
 max_asset_weight: 0.20
-per_asset_delta_thresh: 0.01   # hysteresis limit for rebalancing
-turnover_thresh: 0.02          # skip if small changes
 min_trade_value: 1000.0
-lot_size: 1
+initial_nav: 1000.0
 
-# ---- Replay Buffer & Training ----
-replay_capacity: 200000
-batch_size: 256
-weekly_update_steps: 100
-weekly_update_every_days: 5
+# ---- RL Training Hyperparameters ----
+replay_capacity: 100000
+batch_size: 32
+gamma: 0.99
+actor_lr: 0.0001
+critic_lr: 0.001
+checkpoint_every_steps: 500
+
+# ---- Meta-Agent Config ----
+meta_lr: 0.001
+
+# IMPORTANT: These column names MUST match 'combined_macros_weekly.csv' header
+meta_input:
+  macros:
+    - NIFTY50_ret_last
+    - NASDAQ_ret_last
+    - SP500_ret_last
+    - USDINR_ret_last
+    - INDIAVIX_ret_last
+    - CRUDE_ret_last
