@@ -98,3 +98,5 @@ meta_input:
     - USDINR_ret_last
     - INDIAVIX_ret_last
     - CRUDE_ret_last
+
+meta_warmup_steps: 250

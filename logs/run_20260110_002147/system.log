@@ -1,0 +1,38 @@
+2026-01-10 00:21:47,756 | INFO | Starting Session in Mode: train
+2026-01-10 00:21:50,006 | INFO | Meta-Agent initialized. Input Dim: 15 (Macros=6)
+2026-01-10 00:21:50,105 | INFO | [TrainerRL] Loaded 576 weekly macro records.
+2026-01-10 00:21:50,106 | INFO | Found data for ticker: NSE_ABB
+2026-01-10 00:21:50,107 | INFO | Found data for ticker: NSE_ADANIPORTS
+2026-01-10 00:21:50,107 | INFO | Found data for ticker: NSE_ADANIPOWER
+2026-01-10 00:21:50,108 | INFO | Found data for ticker: NSE_AMBUJACEM
+2026-01-10 00:21:50,110 | INFO | Found data for ticker: NSE_ASIANPAINT
+2026-01-10 00:21:50,111 | INFO | Found data for ticker: NSE_BAJAJ_AUTO
+2026-01-10 00:21:50,112 | INFO | Found data for ticker: NSE_BEL
+2026-01-10 00:21:50,113 | INFO | Found data for ticker: NSE_BHARTIARTL
+2026-01-10 00:21:50,115 | INFO | Found data for ticker: NSE_CIPLA
+2026-01-10 00:21:50,116 | INFO | Found data for ticker: NSE_DLF
+2026-01-10 00:21:50,117 | INFO | Found data for ticker: NSE_GODREJCP
+2026-01-10 00:21:50,117 | INFO | Found data for ticker: NSE_HDFCBANK
+2026-01-10 00:21:50,118 | INFO | Found data for ticker: NSE_HINDUNILVR
+2026-01-10 00:21:50,119 | INFO | Found data for ticker: NSE_ICICIBANK
+2026-01-10 00:21:50,121 | INFO | Found data for ticker: NSE_INDHOTEL
+2026-01-10 00:21:50,122 | INFO | Found data for ticker: NSE_INFY
+2026-01-10 00:21:50,122 | INFO | Found data for ticker: NSE_JSWSTEEL
+2026-01-10 00:21:50,124 | INFO | Found data for ticker: NSE_KOTAKBANK
+2026-01-10 00:21:50,125 | INFO | Found data for ticker: NSE_LT
+2026-01-10 00:21:50,126 | INFO | Found data for ticker: NSE_ONGC
+2026-01-10 00:21:50,127 | INFO | Found data for ticker: NSE_PIDILITIND
+2026-01-10 00:21:50,129 | INFO | Found data for ticker: NSE_RELIANCE
+2026-01-10 00:21:50,130 | INFO | Found data for ticker: NSE_SBIN
+2026-01-10 00:21:50,132 | INFO | Found data for ticker: NSE_SOLARINDS
+2026-01-10 00:21:50,133 | INFO | Found data for ticker: NSE_SUNPHARMA
+2026-01-10 00:21:50,134 | INFO | Found data for ticker: NSE_TATAPOWER
+2026-01-10 00:21:50,135 | INFO | Found data for ticker: NSE_TCS
+2026-01-10 00:21:50,135 | INFO | Found data for ticker: NSE_TITAN
+2026-01-10 00:21:50,136 | INFO | Found data for ticker: NSE_TRENT
+2026-01-10 00:21:50,137 | INFO | Found data for ticker: NSE_TVSMOTOR
+2026-01-10 00:21:50,139 | INFO | Found data for ticker: NSE_ULTRACEMCO
+2026-01-10 00:21:50,140 | INFO | Starting Data Stream...
+2026-01-10 00:21:57,927 | ERROR | Training crashed: mat1 and mat2 shapes cannot be multiplied (32x2015 and 1950x512)
+2026-01-10 00:21:57,946 | INFO | Saved checkpoint to checkpoints\ckpt_step_32.pt
+2026-01-10 00:21:57,947 | INFO | Session Saved. Exiting.

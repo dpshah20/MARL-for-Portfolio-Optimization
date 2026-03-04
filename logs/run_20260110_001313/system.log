@@ -1,0 +1,38 @@
+2026-01-10 00:13:13,431 | INFO | Starting Session in Mode: train
+2026-01-10 00:13:15,672 | INFO | Meta-Agent initialized. Input Dim: 15 (Macros=6)
+2026-01-10 00:13:15,798 | INFO | [TrainerRL] Loaded 576 weekly macro records.
+2026-01-10 00:13:15,799 | INFO | Found data for ticker: NSE_ABB
+2026-01-10 00:13:15,800 | INFO | Found data for ticker: NSE_ADANIPORTS
+2026-01-10 00:13:15,800 | INFO | Found data for ticker: NSE_ADANIPOWER
+2026-01-10 00:13:15,801 | INFO | Found data for ticker: NSE_AMBUJACEM
+2026-01-10 00:13:15,801 | INFO | Found data for ticker: NSE_ASIANPAINT
+2026-01-10 00:13:15,801 | INFO | Found data for ticker: NSE_BAJAJ_AUTO
+2026-01-10 00:13:15,802 | INFO | Found data for ticker: NSE_BEL
+2026-01-10 00:13:15,803 | INFO | Found data for ticker: NSE_BHARTIARTL
+2026-01-10 00:13:15,803 | INFO | Found data for ticker: NSE_CIPLA
+2026-01-10 00:13:15,803 | INFO | Found data for ticker: NSE_DLF
+2026-01-10 00:13:15,804 | INFO | Found data for ticker: NSE_GODREJCP
+2026-01-10 00:13:15,806 | INFO | Found data for ticker: NSE_HDFCBANK
+2026-01-10 00:13:15,806 | INFO | Found data for ticker: NSE_HINDUNILVR
+2026-01-10 00:13:15,806 | INFO | Found data for ticker: NSE_ICICIBANK
+2026-01-10 00:13:15,807 | INFO | Found data for ticker: NSE_INDHOTEL
+2026-01-10 00:13:15,810 | INFO | Found data for ticker: NSE_INFY
+2026-01-10 00:13:15,811 | INFO | Found data for ticker: NSE_JSWSTEEL
+2026-01-10 00:13:15,812 | INFO | Found data for ticker: NSE_KOTAKBANK
+2026-01-10 00:13:15,812 | INFO | Found data for ticker: NSE_LT
+2026-01-10 00:13:15,813 | INFO | Found data for ticker: NSE_ONGC
+2026-01-10 00:13:15,814 | INFO | Found data for ticker: NSE_PIDILITIND
+2026-01-10 00:13:15,815 | INFO | Found data for ticker: NSE_RELIANCE
+2026-01-10 00:13:15,817 | INFO | Found data for ticker: NSE_SBIN
+2026-01-10 00:13:15,818 | INFO | Found data for ticker: NSE_SOLARINDS
+2026-01-10 00:13:15,818 | INFO | Found data for ticker: NSE_SUNPHARMA
+2026-01-10 00:13:15,819 | INFO | Found data for ticker: NSE_TATAPOWER
+2026-01-10 00:13:15,820 | INFO | Found data for ticker: NSE_TCS
+2026-01-10 00:13:15,820 | INFO | Found data for ticker: NSE_TITAN
+2026-01-10 00:13:15,821 | INFO | Found data for ticker: NSE_TRENT
+2026-01-10 00:13:15,821 | INFO | Found data for ticker: NSE_TVSMOTOR
+2026-01-10 00:13:15,822 | INFO | Found data for ticker: NSE_ULTRACEMCO
+2026-01-10 00:13:15,823 | INFO | Starting Data Stream...
+2026-01-10 00:13:22,629 | ERROR | Training crashed: MADDPG.update_critic() takes 6 positional arguments but 7 were given
+2026-01-10 00:13:22,997 | INFO | Saved checkpoint to checkpoints\ckpt_step_32.pt
+2026-01-10 00:13:22,998 | INFO | Session Saved. Exiting.

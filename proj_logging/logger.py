@@ -2,6 +2,7 @@ import os
 import csv
 import logging
 from datetime import datetime
+import json
 
 class RunLogger:
     def __init__(self, base_dir="logs"):
@@ -15,6 +16,7 @@ class RunLogger:
           ├── 2_daily_performance.csv  (Daily Body performance)
           ├── 3_trade_history.csv      (Atomic actions)
           ├── 4_training_internals.csv (Gradients & Loss)
+          ├── execution_logs.jsonl     (Full execution details)
           └── system.log               (Debug info)
         """
         # 1. Create Unique Run Directory
@@ -31,6 +33,7 @@ class RunLogger:
             "perf": os.path.join(self.run_dir, "2_daily_performance.csv"),
             "trades": os.path.join(self.run_dir, "3_trade_history.csv"),
             "internal": os.path.join(self.run_dir, "4_training_internals.csv"),
+            "execution": os.path.join(self.run_dir, "execution_logs.jsonl"),
             "system": os.path.join(self.run_dir, "system.log")
         }
 
@@ -125,14 +128,21 @@ class RunLogger:
             f"{data.get('value', 0):.2f}", f"{data.get('comm', 0):.2f}"
         ])
 
+    def log_execution(self, data: dict):
+        """Log full execution details (JSONL)."""
+        with open(self.paths["execution"], 'a') as f:
+            f.write(json.dumps(data) + "\n")
+
     def log_internal(self, data: dict):
-        """Log neural network health."""
         self._append_csv("internal", [
             data.get("step"),
-            f"{data.get('a_loss', 0):.6f}", f"{data.get('c_loss', 0):.6f}",
-            f"{data.get('grad_norm', 0):.4f}",
-            f"{data.get('w_mean', 0):.4f}", f"{data.get('w_std', 0):.4f}"
+            f"{data.get('a_loss', 0):.6f}",
+            f"{data.get('c_loss', 0):.6f}",
+            "0.0",
+            f"{data.get('w_mean', 0):.4f}",
+            f"{data.get('w_std', 0):.4f}"
         ])
+
 
     def info(self, msg):
         self.sys_logger.info(msg)
