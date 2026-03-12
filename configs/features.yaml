@@ -14,10 +14,9 @@ feature_list:
   - OBV
   - A_D
   - ATR
-  - Boll_MA
-  - Boll_Upper
-  - Boll_Lower
   - Boll_Bandwidth
+  - combined_macros_ret
+  - combined_macros_weekly_ret
   - Crude_OIL_WTI_Futures_Historical_Data_ret
   - India_VIX_Historical_Data_ret
   - NASDAQ_Composite_Historical_Data_ret

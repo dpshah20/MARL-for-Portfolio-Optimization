@@ -10,6 +10,59 @@ DEFAULT_SCALES = {
     "Rmax": 10.0  # Clipping threshold to prevent exploding gradients
 }
 
+
+def compute_reward_details(components: dict, w_meta: np.ndarray, rho: float, scales: dict = None) -> dict:
+    """
+    Computes a detailed reward breakdown for diagnostics.
+    """
+    if scales is None:
+        scales = DEFAULT_SCALES
+
+    # Raw components
+    ret_raw = float(components.get("ret", 0.0))
+    vol_raw = float(components.get("vol", 0.0))
+    cvar_raw = float(components.get("cvar", 0.0))
+    mdd_raw = float(components.get("mdd", 0.0))
+
+    # Normalized components
+    ret = ret_raw / (scales["ret_scale"] + 1e-8)
+    vol = vol_raw / (scales["vol_scale"] + 1e-8)
+    cvar = cvar_raw / (scales["cvar_scale"] + 1e-8)
+    mdd = mdd_raw / (scales["mdd_scale"] + 1e-8)
+
+    # Contribution terms
+    term_ret = float(w_meta[0]) * ret
+    term_vol = float(w_meta[1]) * vol
+    term_cvar = float(w_meta[2]) * cvar
+    term_mdd = float(w_meta[3]) * mdd
+
+    raw_reward = term_ret - term_vol - term_cvar - term_mdd
+
+    exposure = 1.0 - float(rho)
+    final_reward = exposure * raw_reward
+
+    rmax = scales.get("Rmax", 10.0)
+    clipped_reward = float(np.clip(final_reward, -rmax, rmax))
+
+    return {
+        "ret_raw": ret_raw,
+        "vol_raw": vol_raw,
+        "cvar_raw": cvar_raw,
+        "mdd_raw": mdd_raw,
+        "ret_norm": float(ret),
+        "vol_norm": float(vol),
+        "cvar_norm": float(cvar),
+        "mdd_norm": float(mdd),
+        "term_ret": float(term_ret),
+        "term_vol": float(term_vol),
+        "term_cvar": float(term_cvar),
+        "term_mdd": float(term_mdd),
+        "raw_reward": float(raw_reward),
+        "exposure": float(exposure),
+        "final_reward": float(final_reward),
+        "clipped_reward": float(clipped_reward),
+    }
+
 def compute_reward(components: dict, w_meta: np.ndarray, rho: float, scales: dict = None) -> float:
     """
     Computes the risk-aware reward shaped by the Meta-Agent.
@@ -25,36 +78,5 @@ def compute_reward(components: dict, w_meta: np.ndarray, rho: float, scales: dic
     Returns:
         float: The calculated scalar reward.
     """
-    if scales is None:
-        scales = DEFAULT_SCALES
-
-    # 1. Normalize components (add epsilon to avoid division by zero)
-    # ret is "Good", Vol/CVaR/MDD are "Bad" (Risks)
-    ret = components.get("ret", 0.0) / (scales["ret_scale"] + 1e-8)
-    vol = components.get("vol", 0.0) / (scales["vol_scale"] + 1e-8)
-    cvar = components.get("cvar", 0.0) / (scales["cvar_scale"] + 1e-8)
-    mdd = components.get("mdd", 0.0) / (scales["mdd_scale"] + 1e-8)
-
-    # 2. Construct the Reward Equation
-    # The formula subtracts risk terms, so we treat w_vol, w_cvar, w_mdd as penalties.
-    # w_meta is expected to be positive (softmax output).
-    # w_meta = [w_ret, w_vol, w_cvar, w_mdd]
-    
-    term_ret  = w_meta[0] * ret
-    term_vol  = w_meta[1] * vol
-    term_cvar = w_meta[2] * cvar
-    term_mdd  = w_meta[3] * mdd
-    
-    # Raw Shaped Reward = w_ret*ret - w_vol*vol - w_cvar*cvar - w_mdd*mdd
-    raw_reward = term_ret - term_vol - term_cvar - term_mdd
-
-    # 3. Apply Cash Exposure Scaling
-    # If rho=0.9 (90% cash), exposure=0.1. The agent only "feels" 10% of the reward.
-    # This prevents the agent from learning risky behavior when it should be sitting out.
-    exposure = 1.0 - rho
-    final_reward = exposure * raw_reward
-
-    # 4. Clip for numerical stability
-    # Prevents massive outliers from destabilizing the Critic network
-    Rmax = scales.get("Rmax", 10.0)
-    return float(np.clip(final_reward, -Rmax, Rmax))
+    details = compute_reward_details(components, w_meta, rho, scales=scales)
+    return details["clipped_reward"]

@@ -43,29 +43,40 @@ def correlation_adj_from_returns(
     Returns: A (N,N) row-normalized adjacency (rows sum to 1).
     """
     N = returns_mat.shape[0]
-    corr = np.corrcoef(returns_mat)  # (N,N)
+    returns_mat = np.nan_to_num(returns_mat, nan=0.0, posinf=0.0, neginf=0.0)
+    std = np.std(returns_mat, axis=1)
+    active_idx = np.flatnonzero(std > 1e-12)
+
+    A = np.eye(N, dtype=float)
+    if active_idx.size <= 1:
+        return A
+
+    active_returns = returns_mat[active_idx]
+    corr = np.corrcoef(active_returns)  # (N,N) over active assets only
     if absolute:
         corr = np.abs(corr)
-    # fill nan with 0
-    corr = np.nan_to_num(corr, nan=0.0)
-    A = np.zeros_like(corr, dtype=float)
+    corr = np.nan_to_num(corr, nan=0.0, posinf=0.0, neginf=0.0)
+    A_active = np.zeros_like(corr, dtype=float)
     if method == "corr_threshold":
-        A[corr >= thr] = 1.0
+        A_active[corr >= thr] = 1.0
     elif method == "knn":
-        for i in range(N):
+        k = max(1, min(k, active_idx.size - 1))
+        for i in range(active_idx.size):
             order = np.argsort(-corr[i])  # descending
-            # exclude self in selection if desired
             neighbors = [j for j in order if j != i][:k]
-            A[i, neighbors] = 1.0
+            A_active[i, neighbors] = 1.0
     else:
         raise ValueError("Unknown method")
-    # ensure at least self-loop (optional)
-    np.fill_diagonal(A, 1.0)
-    # row-normalize
-    row_sum = A.sum(axis=1, keepdims=True)
+
+    np.fill_diagonal(A_active, 1.0)
+    row_sum = A_active.sum(axis=1, keepdims=True)
     row_sum[row_sum == 0] = 1.0
-    A_norm = A / row_sum
-    return A_norm
+    A_active = A_active / row_sum
+
+    for local_i, global_i in enumerate(active_idx):
+        A[global_i, active_idx] = A_active[local_i]
+
+    return A
 
 def build_adj_for_window_from_parquet_dfs(
     dfs: List[pd.DataFrame],

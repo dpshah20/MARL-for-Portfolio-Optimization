@@ -6,43 +6,117 @@ device: "cpu"
 
 # ---- Universe (30 Stocks) ----
 tickers:
-  - NSE_ABB
-  - NSE_ADANIPORTS
-  - NSE_ADANIPOWER
-  - NSE_AMBUJACEM
-  - NSE_ASIANPAINT
-  - NSE_BAJAJ_AUTO
-  - NSE_BEL
-  - NSE_BHARTIARTL
-  - NSE_CIPLA
-  - NSE_DLF
-  - NSE_GODREJCP
-  - NSE_HDFCBANK
-  - NSE_HINDUNILVR
-  - NSE_ICICIBANK
-  - NSE_INDHOTEL
-  - NSE_INFY
-  - NSE_JSWSTEEL
-  - NSE_KOTAKBANK
-  - NSE_LT 
-  - NSE_ONGC
-  - NSE_PIDILITIND
-  - NSE_RELIANCE
-  - NSE_SBIN
-  - NSE_SOLARINDS
-  - NSE_SUNPHARMA
-  - NSE_TATAPOWER
-  - NSE_TCS
-  - NSE_TITAN
-  - NSE_TRENT
-  - NSE_TVSMOTOR
-  - NSE_ULTRACEMCO
+  - ABB
+  - ADANIENSOL
+  - ADANIENT
+  - ADANIGREEN
+  - ADANIPORTS
+  - ADANIPOWER
+  - AMBUJACEM
+  - APOLLOHOSP
+  - ASIANPAINT
+  - DMART
+  - AXISBANK
+  - BAJAJ-AUTO
+  - BAJFINANCE
+  - BAJAJFINSV
+  - BAJAJHLDNG
+  - BAJAJHFL
+  - BANKBARODA
+  - BEL
+  - BPCL
+  - BHARTIARTL
+  - BOSCHLTD
+  - BRITANNIA
+  - CGPOWER
+  - CANBK
+  - CHOLAFIN
+  - CIPLA
+  - COALINDIA
+  - DLF
+  - DIVISLAB
+  - DRREDDY
+  - EICHERMOT
+  - ETERNAL
+  - GAIL
+  - GODREJCP
+  - GRASIM
+  - HCLTECH
+  - HDFCBANK
+  - HDFCLIFE
+  - HAVELLS
+  - HINDALCO
+  - HAL
+  - HINDUNILVR
+  - HINDZINC
+  - HYUNDAI
+  - ICICIBANK
+  - ICICIGI
+  - ITC
+  - INDHOTEL
+  - IOC
+  - IRFC
+  - NAUKRI
+  - INFY
+  - INDIGO
+  - JSWENERGY
+  - JSWSTEEL
+  - JINDALSTEL
+  - JIOFIN
+  - KOTAKBANK
+  - LT
+  - LICI
+  - LODHA
+  - M&M
+  - MARUTI
+  - MAXHEALTH
+  - MAZDOCK
+  - NTPC
+  - NESTLEIND
+  - ONGC
+  - PIDILITIND
+  - PFC
+  - POWERGRID
+  - PNB
+  - RECLTD
+  - RELIANCE
+  - SBILIFE
+  - MOTHERSON
+  - SHREECEM
+  - SHRIRAMFIN
+  - ENRIN
+  - SIEMENS
+  - SOLARINDS
+  - SBIN
+  - SUNPHARMA
+  - TVSMOTOR
+  - TCS
+  - TATACONSUM
+  - TMPV
+  - TATAPOWER
+  - TATASTEEL
+  - TECHM
+  - TITAN
+  - TORNTPHARM
+  - TRENT
+  - ULTRACEMCO
+  - UNITDSPR
+  - VBL
+  - VEDL
+  - WIPRO
+  - ZYDUSLIFE
 
 # ---- Data Parameters ----
 window_length: 126
 min_date: "2015-01-01"
 smoke_days: 100
 macros_weekly_path: "data/macros/combined_macros_weekly.csv"
+
+# Optional explicit train/test split for out-of-sample evaluation.
+# If unset (null), the full stream runs in train mode.
+train_end_date: "2021-12-31"
+test_start_date: "2022-01-01"
+test_end_date: "2025-10-31"
 
 # ---- Feature Columns (Daily) ----
 feature_cols:
@@ -61,10 +135,9 @@ feature_cols:
   - OBV
   - A_D
   - ATR
-  - Boll_MA
-  - Boll_Upper
-  - Boll_Lower
   - Boll_Bandwidth
+  - combined_macros_ret
+  - combined_macros_weekly_ret
   - Crude_Oil_WTI_Futures_Historical_Data_ret
   - India_VIX_Historical_Data_ret
   - NASDAQ_Composite_Historical_Data_ret
@@ -88,6 +161,22 @@ checkpoint_every_steps: 500
 
 # ---- Meta-Agent Config ----
 meta_lr: 0.001
+meta_hidden_dim: 128
+meta_entropy_coef: 0.001
+meta_baseline_momentum: 0.95
+meta_warmup_steps: 250
+meta_transition_steps: 50
+meta_rho_min: 0.05
+meta_rho_max: 0.30
+meta_init_std_w: 0.35
+meta_init_std_rho: 0.20
+
+# ---- Graph Construction ----
+graph:
+  mode: "knn"            # identity | knn | corr_threshold
+  k: 8
+  corr_threshold: 0.60
+  absolute_corr: true
 
 # IMPORTANT: These column names MUST match 'combined_macros_weekly.csv' header
 meta_input:
@@ -98,5 +187,3 @@ meta_input:
     - USDINR_ret_last
     - INDIAVIX_ret_last
     - CRUDE_ret_last
-
-meta_warmup_steps: 250

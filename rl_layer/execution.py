@@ -16,6 +16,7 @@ class Portfolio:
     def __init__(self, tickers, initial_nav: float = 1000.0, initial_cash: float = 1_00_00_000.0):
         self.tickers = list(tickers)
         self.holdings = {t: 0 for t in self.tickers}
+        self.avg_cost = {t: 0.0 for t in self.tickers}
         self.allocations = {t: 0.0 for t in self.tickers}
         
         self.cash = float(initial_cash)
@@ -102,26 +103,51 @@ class Portfolio:
             price = float(prices.get(t, 0.0))
             if price <= 0: continue
 
+            current_shares = self.holdings.get(t, 0)
+            avg_cost_before = float(self.avg_cost.get(t, 0.0))
             cost = delta * price
             commission = abs(cost) * 0.001 # Assume 0.1% commission
             total_cost = cost + commission
+            realized_pnl = 0.0
             
             # Safety check: Do we have cash for a BUY?
             if delta > 0 and total_cost > self.cash:
                 # Skip buy if insufficient funds 
                 # (In a real system, we'd scale down, here we skip for safety)
                 continue
+
+            if delta < 0:
+                sell_qty = abs(delta)
+                effective_sell_price = price
+                realized_pnl = (effective_sell_price - avg_cost_before) * sell_qty - commission
                 
             self.holdings[t] += delta
             self.cash -= total_cost
+
+            if delta > 0:
+                buy_qty = delta
+                prev_qty = current_shares
+                new_qty = self.holdings[t]
+                if new_qty > 0:
+                    gross_prev_cost = prev_qty * avg_cost_before
+                    gross_new_cost = buy_qty * price + commission
+                    self.avg_cost[t] = (gross_prev_cost + gross_new_cost) / new_qty
+            elif self.holdings[t] <= 0:
+                self.avg_cost[t] = 0.0
             
             trades_list.append({
                 "ticker": t,
                 "action": "BUY" if delta > 0 else "SELL",
                 "shares": delta,
+                "buy_shares": delta if delta > 0 else 0,
+                "sell_shares": abs(delta) if delta < 0 else 0,
                 "price": price,
                 "value": cost,
-                "comm": commission
+                "comm": commission,
+                "avg_cost_before": avg_cost_before,
+                "avg_cost_after": float(self.avg_cost.get(t, 0.0)),
+                "realized_pnl": realized_pnl,
+                "position_after": int(self.holdings[t]),
             })
 
         # 6. Update Final Stats

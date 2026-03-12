@@ -5,22 +5,39 @@ import torch.nn.functional as F
 from rl_layer.critic_distributional import QuantileCritic, quantile_huber_loss
 
 class ActorNet(nn.Module):
-    def __init__(self, in_dim, hidden=128):
+    def __init__(self, in_dim, hidden=128, mem_dim=64):
         super().__init__()
+        self.in_dim = in_dim
+        self.mem_dim = mem_dim
+
+        self.memory_cell = nn.GRUCell(in_dim, mem_dim)
         self.net = nn.Sequential(
-            nn.Linear(in_dim, hidden),
+            nn.Linear(in_dim + mem_dim, hidden),
             nn.ReLU(),
             nn.Linear(hidden, hidden),
             nn.ReLU(),
             nn.Linear(hidden, 1)
         )
 
-    def forward(self, x):
+    def init_hidden(self, batch_size, device=None):
+        if device is None:
+            device = next(self.parameters()).device
+        return torch.zeros(batch_size, self.mem_dim, device=device)
+
+    def forward(self, x, hidden=None):
         if x.dim() == 2:
             x = x.unsqueeze(0)
         B, N, d = x.shape
-        out = self.net(x.view(B * N, d)).view(B, N)
-        return out
+        if hidden is None:
+            hidden = self.init_hidden(B, device=x.device)
+
+        market_context = x.mean(dim=1)
+        next_hidden = self.memory_cell(market_context, hidden)
+
+        hidden_expand = next_hidden.unsqueeze(1).expand(-1, N, -1)
+        actor_in = torch.cat([x, hidden_expand], dim=-1)
+        out = self.net(actor_in.view(B * N, d + self.mem_dim)).view(B, N)
+        return out, next_hidden
 
 
 class MADDPG:
@@ -81,19 +98,19 @@ class MADDPG:
         self.critic_opt.step()
         return loss.item()
 
-    def update_actor(self, z):
+    def update_actor(self, z, hidden_in=None):
         """
         z: (B, N, D_enc) from encoder
         Critic expects ONLY first d_gnn dims per stock
         """
         self.actor_opt.zero_grad()
 
-        scores = self.actor(z)              # (B, N)
+        scores, _ = self.actor(z, hidden=hidden_in)  # (B, N)
         actions = F.softmax(scores, dim=1)  # (B, N)
 
         # 🔑 Slice encoder output to match critic expectation
         B, N, _ = z.shape
-        z_core = z[:, :, :self.actor.net[0].in_features]  # = d_gnn
+        z_core = z[:, :, :self.d_gnn]
 
         state_flat = z_core.contiguous().view(B, N * z_core.size(-1))
 
