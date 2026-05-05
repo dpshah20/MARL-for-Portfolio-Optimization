@@ -12,6 +12,8 @@ def read_macro(path):
     col_name = f"{name}_Close"
     df = df.rename(columns={"Close": col_name})
     df = df[["Date", col_name]]
+    df = df.dropna(subset=["Date"]).sort_values("Date")
+    df = df.drop_duplicates(subset=["Date"], keep="last")
     df[col_name] = pd.to_numeric(df[col_name], errors="coerce").ffill().fillna(0)
     df[name + "_ret"] = df[col_name].pct_change().fillna(0)
     return df[["Date", name + "_ret"]]

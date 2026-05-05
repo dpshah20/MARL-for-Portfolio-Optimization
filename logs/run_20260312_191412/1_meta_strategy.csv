@@ -1,0 +1,2 @@
+week_start_date,step,phase,rho_cash,w_ret,w_vol,w_cvar,w_mdd,log_prob,entropy,weekly_return,meta_loss,rho_clipped
+2015-07-06T00:00:00.000000000,0,train,0.0500,1.0000,0.0000,0.0000,0.0000,0.000000,0.000000,0.000000,0.000000,0

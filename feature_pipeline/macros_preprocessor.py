@@ -48,10 +48,10 @@ def load_macro_csv(path: str) -> pd.DataFrame:
 
     # ✅ robust date parsing for mixed formats
     try:
-        df["Date"] = pd.to_datetime(df["Date"], format="%d-%m-%Y", errors="raise")
+        df["date"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="raise")
     except Exception:
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
-    df = df.dropna(subset=["Date"])
+        df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
+    df = df.dropna(subset=["date"])
 
     # ✅ normalize column names
     df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
@@ -93,7 +93,7 @@ def load_macro_csv(path: str) -> pd.DataFrame:
         )
 
     df = df.sort_values("date").reset_index(drop=True)
-    df.rename(columns={"date": "Date", price_col: "Price"}, inplace=True)
+    df.rename(columns={"date": "date", price_col: "Price"}, inplace=True)
     return df
 
 # ----------------------
@@ -102,7 +102,7 @@ def load_macro_csv(path: str) -> pd.DataFrame:
 def compute_features_for_symbol(df: pd.DataFrame,
                                 vol_window: int = 5,
                                 mom_window: int = 21) -> pd.DataFrame:
-    dfc = df[["Date", "Price"]].copy()
+    dfc = df[["date", "Price"]].copy()
     dfc["ret"] = np.log(dfc["Price"] / dfc["Price"].shift(1))
     dfc["vol5"] = dfc["ret"].rolling(vol_window, min_periods=1).std().fillna(0.0)
     dfc["mom21"] = dfc["Price"].pct_change(periods=mom_window).fillna(0.0)
@@ -130,9 +130,9 @@ def build_macro_features(paths: Dict[str, str],
         if out is None:
             out = feats
         else:
-            out = out.merge(feats, on="Date", how="outer")
+            out = out.merge(feats, on="date", how="outer")
 
-    out = out.sort_values("Date").reset_index(drop=True)
+    out = out.sort_values("date").reset_index(drop=True)
     out = out.fillna(method="ffill").fillna(method="bfill").fillna(0.0)
     return out
 
@@ -141,17 +141,16 @@ def build_macro_features(paths: Dict[str, str],
 # ----------------------
 if __name__ == "__main__":
     sample = {
-        "NIFTY50": "data/macros/Nifty 50 Historical Data.csv",
-        "NASDAQ": "data/macros/NASDAQ Composite Historical Data.csv",
-        "SP500": "data/macros/S&P 500 Historical Data (1).csv",
-        "USDINR": "data/macros/USD_INR Historical Data.csv",
-        "INDIAVIX": "data/macros/India VIX Historical Data.csv",
-        "CRUDE": "data/macros/Crude Oil WTI Futures Historical Data.csv"
+        "NIFTY50": "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\NIFTY50.csv",
+        "NASDAQ": "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\NASDAQ.csv",
+        "SP500": "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\SP500.csv",
+        "USDINR": "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\USDINR.csv",
+        "INDIAVIX": "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\INDIAVIX.csv",
+        "CRUDE": "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\CRUDE.csv"
     }
 
     df = build_macro_features(sample)
-    os.makedirs("data/macros", exist_ok=True)
-    output_path = "data/macros/combined_macros.csv"
+    output_path = "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\combined_macros.csv"
     df.to_csv(output_path, index=False)
     print(f"✅ Combined macro features saved to {output_path}")
     print(df.head())

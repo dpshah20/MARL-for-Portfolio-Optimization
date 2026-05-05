@@ -45,7 +45,7 @@ def compute_technical_features(df: pd.DataFrame, cfg) -> pd.DataFrame:
     df["Boll_Bandwidth"] = bb.bollinger_pband()
     
     # Forward fill NaN values from indicators
-    df = df.fillna(method="ffill").fillna(0)
+    df = df.ffill().fillna(0)
     
     return df
 

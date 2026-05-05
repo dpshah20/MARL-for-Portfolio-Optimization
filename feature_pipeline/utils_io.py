@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 
-def read_csv_flex(path, date_first=True):
+def read_csv_flex(path, date_first=False):
     """
     Robust reader for CSVs that finds date/price/volume columns flexibly.
     Returns a DataFrame with columns: Date, Open, High, Low, Close, Volume (if present).

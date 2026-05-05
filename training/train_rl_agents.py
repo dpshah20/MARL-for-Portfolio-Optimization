@@ -15,7 +15,6 @@ from rl_layer.reward_function import compute_reward_details
 
 class TrainerRL:
     def __init__(self, cfg: dict, logger, ckpt_mgr, device: str = "cpu"):
-        self.cfg = cfg
         self.device = device
         self.logger = logger
         self.ckpt_mgr = ckpt_mgr
@@ -25,74 +24,85 @@ class TrainerRL:
         # ------------------------------
         self.tickers = cfg["tickers"]
         self.feature_cols = cfg["feature_cols"]
-        self.window = cfg.get("window_length", 126)
+        self.window = cfg["window_length"]
         self.N_stocks = len(self.tickers)
         self.close_idx = self.feature_cols.index("Close") if "Close" in self.feature_cols else None
 
         # ------------------------------
         # 2. Encoder + Actor-Critic
         # ------------------------------
-        enc_cfg = cfg.get("encoder", {})
+        enc_cfg = cfg["encoder"]
         self.encoder = CombinedEncoder(
-            input_dim=enc_cfg.get("input_dim", len(self.feature_cols)),
-            W=enc_cfg.get("W", self.window),
-            d_time=enc_cfg.get("d_time", 64),
-            d_gnn=enc_cfg.get("d_gnn", 64),
-            time_layers=enc_cfg.get("time_layers", 2),
-            gnn_layers=enc_cfg.get("gnn_layers", 2)
+            input_dim=len(self.feature_cols),
+            W=self.window,
+            d_time=enc_cfg["d_time"],
+            d_gnn=enc_cfg["d_gnn"],
+            time_layers=enc_cfg["time_layers"],
+            gnn_layers=enc_cfg["gnn_layers"],
         ).to(self.device)
 
-        self.K = cfg.get("top_k", 10)
+        self.K = cfg["top_k"]
         self.agent = MADDPG(
-            d_gnn=enc_cfg.get("d_gnn", 64),
+            d_gnn=enc_cfg["d_gnn"],
             n_assets=len(self.tickers),
-            device=self.device
+            actor_lr=cfg["actor_lr"],
+            critic_lr=cfg["critic_lr"],
+            gamma=cfg["gamma"],
+            tau=cfg["tau"],
+            Nq=cfg["Nq"],
+            actor_hidden=cfg["actor_hidden"],
+            actor_mem_dim=cfg["actor_mem_dim"],
+            critic_hidden=cfg["critic_hidden"],
+            device=self.device,
         )
 
-        self.replay = ReplayBuffer(capacity=cfg.get("replay_capacity", 200000))
+        self.replay = ReplayBuffer(capacity=cfg["replay_capacity"])
 
-        # Graph construction controls (important for larger universes like Nifty 100).
-        graph_cfg = cfg.get("graph", {})
-        self.graph_mode = graph_cfg.get("mode", "knn")
-        self.graph_k = int(graph_cfg.get("k", 8))
-        self.graph_corr_thr = float(graph_cfg.get("corr_threshold", 0.6))
-        self.graph_abs_corr = bool(graph_cfg.get("absolute_corr", True))
+        graph_cfg = cfg["graph"]
+        self.graph_mode = graph_cfg["mode"]
+        self.graph_k = int(graph_cfg["k"])
+        self.graph_corr_thr = float(graph_cfg["corr_threshold"])
+        self.graph_abs_corr = bool(graph_cfg["absolute_corr"])
 
         # ------------------------------
         # 3. Portfolio & Execution
         # ------------------------------
         self.portfolio = Portfolio(
             self.tickers,
-            initial_nav=cfg.get("initial_nav", 1000.0)
+            initial_nav=cfg["initial_nav"],
+            initial_cash=cfg["initial_cash"],
+            commission_rate=cfg["commission_rate"],
         )
+
+        self.reward_scales = cfg["reward_scales"]
+        self.batch_size = cfg["batch_size"]
+        self.min_trade_value = cfg["min_trade_value"]
+        self.max_asset_weight = cfg["max_asset_weight"]
 
         self.selector = HysteresisSelector(
             self.tickers,
             k=self.K,
-            hysteresis_days=cfg.get("hysteresis_days", 3)
+            hysteresis_days=cfg["hysteresis_days"],
         )
 
         # ------------------------------
         # 4. Reward & Rolling Metrics
         # ------------------------------
-        self.ret_history = deque(maxlen=30)
+        self.ret_history = deque(maxlen=60)
         self.rolling_metrics = {"vol": 0.0, "cvar": 0.0, "mdd": 0.0}
 
         # ------------------------------
         # 5. Meta-RL Integration
         # ------------------------------
         self.meta_trainer = None
-        self.meta_warmup_steps = cfg.get("meta_warmup_steps", 300)
-        self.meta_transition_steps = int(cfg.get("meta_transition_steps", 50))
-        self.meta_rho_min = float(cfg.get("meta_rho_min", 0.05))
-        self.meta_rho_max = float(cfg.get("meta_rho_max", 0.30))
+        self.meta_warmup_steps = cfg["meta_warmup_steps"]
+        self.meta_transition_steps = int(cfg["meta_transition_steps"])
+        self.meta_rho_min = float(cfg["meta_rho_min"])
+        self.meta_rho_max = float(cfg["meta_rho_max"])
 
-        macro_path = cfg.get("macros_weekly_path", "data/macros/combined_macros_weekly.csv")
-        self._load_macros(macro_path)
+        self._load_macros(cfg["macros_weekly_path"])
 
-        self.meta_cols = cfg.get("meta_input", {}).get("macros", [])
-        if not self.meta_cols:
-            raise ValueError("[Critical] No meta_input.macros found in params.yaml")
+        self.meta_cols = cfg["meta_input"]["macros"]
 
         # Meta state
         self.current_week_num = -1
@@ -126,6 +136,9 @@ class TrainerRL:
             raise FileNotFoundError(f"[Critical] Macro file not found: {path}")
 
         df = pd.read_csv(path)
+        # Normalise date column name (file uses lowercase 'date')
+        date_col = next(c for c in df.columns if c.lower() == "date")
+        df = df.rename(columns={date_col: "Date"})
         df["Date"] = pd.to_datetime(df["Date"])
         self.macro_df = df.sort_values("Date").set_index("Date")
         self.logger.info(f"[TrainerRL] Loaded {len(df)} weekly macro records.")
@@ -215,6 +228,7 @@ class TrainerRL:
                 },
                 self.current_w,
                 self.current_rho,
+                scales=self.reward_scales,
             )
             reward = reward_details["clipped_reward"]
 
@@ -231,7 +245,7 @@ class TrainerRL:
                     )
                 )
 
-                if len(self.replay) >= self.cfg.get("batch_size", 32):
+                if len(self.replay) >= self.batch_size:
                     self._update_agent(step_count)
 
             self.logger.log_performance(
@@ -297,7 +311,8 @@ class TrainerRL:
             alloc,
             prices,
             target_cash=self.current_rho,
-            min_trade_value=self.cfg.get("min_trade_value", 1000.0),
+            min_trade_value=self.min_trade_value,
+            max_weight=self.max_asset_weight,
         )
         
         # ---- LOGGING TRADES & EXECUTION ----
@@ -332,7 +347,7 @@ class TrainerRL:
     # ACTOR–CRITIC UPDATE (FIXED)
     # ------------------------------------------------------------------
     def _update_agent(self, step):
-        batch = self.replay.sample(self.cfg.get("batch_size", 32))
+        batch = self.replay.sample(self.batch_size)
 
         states = torch.cat([x[0] for x in batch]).to(self.device)
         actions = torch.from_numpy(
@@ -558,7 +573,7 @@ class TrainerRL:
 
         arr = np.array(self.ret_history)
         vol = np.std(arr)
-        worst = np.sort(arr)[: max(1, int(0.05 * len(arr)))]
+        worst = np.sort(arr)[: max(1, int(0.10 * len(arr)))]
         cvar = -np.mean(worst)
 
         cum = np.cumprod(1 + arr)

@@ -3,6 +3,8 @@ import yaml
 import os
 import glob
 import sys
+import random
+import numpy as np
 import torch
 import pandas as pd
 
@@ -22,6 +24,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/params.yaml")
     parser.add_argument("--mode", type=str, default="train", choices=["smoke", "train", "resume"])
+    # Walk-forward date overrides (used by walk_forward.py orchestrator)
+    parser.add_argument("--min_date", type=str, default=None)
+    parser.add_argument("--train_end_date", type=str, default=None)
+    parser.add_argument("--test_start_date", type=str, default=None)
+    parser.add_argument("--test_end_date", type=str, default=None)
+    parser.add_argument("--wf_label", type=str, default=None, help="Walk-forward window label")
+    parser.add_argument("--seed", type=int, default=None, help="Override cfg seed")
     args = parser.parse_args()
 
     # --- 1. Load Configurations ---
@@ -30,12 +39,31 @@ def main():
         return
 
     cfg = yaml.safe_load(open(args.config))
-    
-    # Attempt to load meta-agent specific config if it exists
+
+    # Apply CLI date/seed overrides (walk-forward orchestrator uses these)
+    for key in ("min_date", "train_end_date", "test_start_date", "test_end_date"):
+        val = getattr(args, key)
+        if val is not None:
+            cfg[key] = val
+    if args.seed is not None:
+        cfg["seed"] = args.seed
+
+    # --- Reproducibility: seed all RNGs ---
+    seed = cfg.get("seed", 42)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # Load meta-agent config (required)
     meta_config_path = "configs/meta_agent.yaml"
-    if os.path.exists(meta_config_path):
-        meta_cfg = yaml.safe_load(open(meta_config_path))
-        cfg.update(meta_cfg) # Merge settings
+    if not os.path.exists(meta_config_path):
+        print(f"Error: Required config '{meta_config_path}' not found.")
+        return
+    meta_cfg = yaml.safe_load(open(meta_config_path))
+    cfg.update(meta_cfg)
     
     # Override defaults for specific modes
     if args.mode == "smoke":
@@ -46,34 +74,35 @@ def main():
     # Initialize the new hierarchical logger
     logger = RunLogger(base_dir="logs")
     logger.info(f"Starting Session in Mode: {args.mode}")
-    
-    ckpt_dir = cfg.get("checkpoint_dir", "checkpoints")
+    logger.info(f"Random seed: {seed}")
+    if args.wf_label:
+        logger.info(f"Walk-forward window: {args.wf_label}")
+        logger.info(f"Train: {cfg.get('min_date')} -> {cfg.get('train_end_date')} | Test: {cfg.get('test_start_date')} -> {cfg.get('test_end_date')}")
+
+    # Scope checkpoints to this run's directory so runs never overwrite each other
+    ckpt_dir = os.path.join(logger.run_dir, cfg.get("checkpoint_dir", "checkpoints"))
     ckpt_mgr = CheckpointManager(ckpt_dir, logger=logger)
 
     # --- 3. Initialize The Brain (Meta-Agent) ---
     # Input Dim = Count(Macro Features) + 4 (Prev Week Stats) + 5 (Prev Action Logits)
     # We need to know how many macro columns we are using
-    macro_cols = cfg.get("meta_input", {}).get("macros", [])
-    # If not in config, default to 6 standard macro features
-    if not macro_cols: 
-        macro_cols = ["macro_1", "macro_2", "macro_3", "macro_4", "macro_5", "macro_6"]
-        
+    macro_cols = cfg["meta_input"]["macros"]
     meta_input_dim = len(macro_cols) + 4 + 5
-    
-    device = cfg.get("device", "cpu")
+
+    device = cfg["device"]
     meta_agent = MetaAgent(
         input_dim=meta_input_dim,
-        hidden_dim=cfg.get("meta_hidden_dim", 128),
-        rho_min=cfg.get("meta_rho_min", 0.05),
-        rho_max=cfg.get("meta_rho_max", 0.30),
-        init_std_w=cfg.get("meta_init_std_w", 0.35),
-        init_std_rho=cfg.get("meta_init_std_rho", 0.20),
+        hidden_dim=cfg["meta_hidden_dim"],
+        rho_min=cfg["meta_rho_min"],
+        rho_max=cfg["meta_rho_max"],
+        init_std_w=cfg["meta_init_std_w"],
+        init_std_rho=cfg["meta_init_std_rho"],
     ).to(device)
     meta_trainer = MetaTrainer(
         meta_agent,
-        lr=cfg.get("meta_lr", 1e-3),
-        entropy_coef=cfg.get("meta_entropy_coef", 1e-3),
-        baseline_momentum=cfg.get("meta_baseline_momentum", 0.95),
+        lr=cfg["meta_lr"],
+        entropy_coef=cfg["meta_entropy_coef"],
+        baseline_momentum=cfg["meta_baseline_momentum"],
     )
     
     logger.info(f"Meta-Agent initialized. Input Dim: {meta_input_dim} (Macros={len(macro_cols)})")
@@ -95,24 +124,31 @@ def main():
         logger.info(f"Resumed training from step {start_step}")
 
     # --- 6. Data Preparation ---
-    # Expects parquet files in 'nifty100/' folder
+    # Expects parquet files in 'nifty100_new/' folder
     parquet_paths = []
     for t in cfg["tickers"]:
-        # Try exact match first
-        p = f"nifty100/{t}_merged.parquet"
+        # Try new naming convention first (TICKER_1D_merged.parquet)
+        p = f"nifty100_new/{t}_1D_merged.parquet"
         if os.path.exists(p):
             parquet_paths.append(p)
             logger.info(f"Found data for ticker: {t}")
+            continue
+        # Fallback: old naming convention (TICKER_merged.parquet)
+        p2 = f"nifty100_new/{t}_merged.parquet"
+        if os.path.exists(p2):
+            parquet_paths.append(p2)
+            logger.info(f"Found data for ticker: {t}")
+            continue
+        # Last resort: glob
+        matches = glob.glob(f"nifty100_new/{t}*merged.parquet")
+        if matches:
+            parquet_paths.append(matches[0])
+            logger.info(f"Found data for ticker: {t}")
         else:
-            # Fallback search
-            matches = glob.glob(f"nifty100/{t}*.parquet")
-            if matches:
-                parquet_paths.append(matches[0])
-            else:
-                logger.info(f"[Warning] No data found for ticker: {t}")
+            logger.info(f"[Warning] No data found for ticker: {t}")
 
     if not parquet_paths:
-        logger.error("No valid parquet files found in 'nifty100/'. Exiting.")
+        logger.error("No valid parquet files found in 'nifty100_new/'. Exiting.")
         return
 
     # --- 7. Training Loop ---
@@ -121,11 +157,11 @@ def main():
     # Define run limits
     max_steps = float('inf')
     if args.mode == "smoke":
-        max_steps = 50 # Run enough steps to trigger at least one batch update
+        max_steps = cfg["smoke_days"]
     
     feature_cols = cfg["feature_cols"]
-    window_len = cfg.get("window_length", 126)
-    min_date = cfg.get("min_date", "2015-01-01")
+    window_len = cfg["window_length"]
+    min_date = cfg["min_date"]
     train_end_date = cfg.get("train_end_date")
     test_start_date = cfg.get("test_start_date")
     test_end_date = cfg.get("test_end_date")
@@ -184,7 +220,7 @@ def main():
             step += 1
 
             # Periodic Checkpoint
-            if step % cfg.get("checkpoint_every_steps", 500) == 0:
+            if step % cfg["checkpoint_every_steps"] == 0:
                 ckpt_mgr.save(step, actor=rl_trainer.agent.actor, critic=rl_trainer.agent.critic, meta_agent=meta_agent)
 
     except KeyboardInterrupt:

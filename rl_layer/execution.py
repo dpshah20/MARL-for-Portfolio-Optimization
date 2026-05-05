@@ -13,7 +13,7 @@ class Portfolio:
       - nav: normalized NAV (starting 1000)
     """
 
-    def __init__(self, tickers, initial_nav: float = 1000.0, initial_cash: float = 1_00_00_000.0):
+    def __init__(self, tickers, initial_nav: float = 1000.0, initial_cash: float = 1_00_00_000.0, commission_rate: float = 0.001):
         self.tickers = list(tickers)
         self.holdings = {t: 0 for t in self.tickers}
         self.avg_cost = {t: 0.0 for t in self.tickers}
@@ -21,6 +21,7 @@ class Portfolio:
         
         self.cash = float(initial_cash)
         self.initial_cash = float(initial_cash)
+        self.commission_rate = float(commission_rate)
         self.nav = float(initial_nav)
         self.total_value = float(initial_cash)
 
@@ -45,7 +46,8 @@ class Portfolio:
                             prices: Dict[str, float],
                             target_cash: float,  # <--- CHANGED: Dynamic Rho from Meta-Agent
                             lot_size: int = 1,
-                            min_trade_value: float = 1000.0) -> Tuple[Dict[str, float], List[dict]]:
+                            min_trade_value: float = 1000.0,
+                            max_weight: float = 0.20) -> Tuple[Dict[str, float], List[dict]]:
         """
         Execute trades to reach target_weights, STRICTLY respecting target_cash.
         
@@ -72,10 +74,11 @@ class Portfolio:
         # 3. Calculate Target Rupee Value per Stock
         # target_weights from Actor usually sum to ~1.0 (Softmax).
         # We map that 1.0 to the "Investable Capital" portion only.
+        max_value_per_stock = max_weight * self.total_value
         desired_values = {}
         for t in self.tickers:
             w = target_weights.get(t, 0.0)
-            desired_values[t] = w * investable_capital
+            desired_values[t] = min(w * investable_capital, max_value_per_stock)
 
         # 4. Calculate Shares to Buy/Sell
         trades_diff = {}
@@ -106,7 +109,7 @@ class Portfolio:
             current_shares = self.holdings.get(t, 0)
             avg_cost_before = float(self.avg_cost.get(t, 0.0))
             cost = delta * price
-            commission = abs(cost) * 0.001 # Assume 0.1% commission
+            commission = abs(cost) * self.commission_rate
             total_cost = cost + commission
             realized_pnl = 0.0
             

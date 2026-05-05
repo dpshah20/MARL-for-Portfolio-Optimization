@@ -45,11 +45,14 @@ class MADDPG:
         self,
         d_gnn,
         n_assets,
-        actor_lr=1e-4,
-        critic_lr=1e-4,
-        gamma=0.99,
-        tau=0.005,
-        Nq=51,
+        actor_lr,
+        critic_lr,
+        gamma,
+        tau,
+        Nq,
+        actor_hidden,
+        actor_mem_dim,
+        critic_hidden,
         device="cpu",
     ):
         self.device = device
@@ -59,21 +62,21 @@ class MADDPG:
         self.n_assets = n_assets
         self.d_gnn = d_gnn
 
-        self.actor = ActorNet(d_gnn).to(device)
-        self.actor_target = ActorNet(d_gnn).to(device)
+        self.actor = ActorNet(d_gnn, hidden=actor_hidden, mem_dim=actor_mem_dim).to(device)
+        self.actor_target = ActorNet(d_gnn, hidden=actor_hidden, mem_dim=actor_mem_dim).to(device)
         self.actor_target.load_state_dict(self.actor.state_dict())
 
         self.critic = QuantileCritic(
             state_dim=d_gnn * n_assets,
             action_dim=n_assets,
-            hidden=512,
+            hidden=critic_hidden,
             Nq=Nq,
         ).to(device)
 
         self.critic_target = QuantileCritic(
             state_dim=d_gnn * n_assets,
             action_dim=n_assets,
-            hidden=512,
+            hidden=critic_hidden,
             Nq=Nq,
         ).to(device)
 

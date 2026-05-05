@@ -3,8 +3,10 @@
 # =============================
 
 device: "cpu"
+seed: 42
 
-# ---- Universe (30 Stocks) ----
+# ---- Universe (100 Stocks) ----
+
 tickers:
   - ABB
   - ADANIENSOL
@@ -15,96 +17,97 @@ tickers:
   - AMBUJACEM
   - APOLLOHOSP
   - ASIANPAINT
-  - DMART
   - AXISBANK
   - BAJAJ-AUTO
-  - BAJFINANCE
   - BAJAJFINSV
-  - BAJAJHLDNG
   - BAJAJHFL
+  - BAJAJHLDNG
+  - BAJFINANCE
   - BANKBARODA
   - BEL
-  - BPCL
   - BHARTIARTL
   - BOSCHLTD
+  - BPCL
   - BRITANNIA
-  - CGPOWER
   - CANBK
+  - CGPOWER
   - CHOLAFIN
   - CIPLA
   - COALINDIA
-  - DLF
   - DIVISLAB
+  - DLF
+  - DMART
   - DRREDDY
   - EICHERMOT
+  - ENRIN
   - ETERNAL
   - GAIL
   - GODREJCP
   - GRASIM
+  - HAL
+  - HAVELLS
   - HCLTECH
   - HDFCBANK
   - HDFCLIFE
-  - HAVELLS
   - HINDALCO
-  - HAL
   - HINDUNILVR
   - HINDZINC
   - HYUNDAI
   - ICICIBANK
   - ICICIGI
-  - ITC
   - INDHOTEL
+  - INDIGO
+  - INFY
   - IOC
   - IRFC
-  - NAUKRI
-  - INFY
-  - INDIGO
-  - JSWENERGY
-  - JSWSTEEL
+  - ITC
   - JINDALSTEL
   - JIOFIN
+  - JSWENERGY
+  - JSWSTEEL
   - KOTAKBANK
-  - LT
   - LICI
   - LODHA
+  - LT
   - M&M
   - MARUTI
   - MAXHEALTH
   - MAZDOCK
-  - NTPC
+  - MOTHERSON
+  - NAUKRI
   - NESTLEIND
+  - NTPC
   - ONGC
-  - PIDILITIND
   - PFC
-  - POWERGRID
+  - PIDILITIND
   - PNB
+  - POWERGRID
   - RECLTD
   - RELIANCE
   - SBILIFE
-  - MOTHERSON
+  - SBIN
   - SHREECEM
   - SHRIRAMFIN
-  - ENRIN
   - SIEMENS
   - SOLARINDS
-  - SBIN
   - SUNPHARMA
-  - TVSMOTOR
-  - TCS
   - TATACONSUM
-  - TMPV
   - TATAPOWER
   - TATASTEEL
+  - TCS
   - TECHM
   - TITAN
+  - TMPV
   - TORNTPHARM
   - TRENT
+  - TVSMOTOR
   - ULTRACEMCO
   - UNITDSPR
   - VBL
   - VEDL
   - WIPRO
   - ZYDUSLIFE
+
 
 # ---- Data Parameters ----
 window_length: 126
@@ -114,9 +117,9 @@ macros_weekly_path: "data/macros/combined_macros_weekly.csv"
 
 # Optional explicit train/test split for out-of-sample evaluation.
 # If unset (null), the full stream runs in train mode.
-train_end_date: "2021-12-31"
-test_start_date: "2022-01-01"
-test_end_date: "2025-10-31"
+train_end_date: "2021-06-30"
+test_start_date: "2021-07-01"
+test_end_date: "2026-04-30"
 
 # ---- Feature Columns (Daily) ----
 feature_cols:
@@ -138,18 +141,21 @@ feature_cols:
   - Boll_Bandwidth
   - combined_macros_ret
   - combined_macros_weekly_ret
-  - Crude_Oil_WTI_Futures_Historical_Data_ret
-  - India_VIX_Historical_Data_ret
-  - NASDAQ_Composite_Historical_Data_ret
-  - Nifty_50_Historical_Data_ret
-  - S&P_500_Historical_Data_(1)_ret
-  - USD_INR_Historical_Data_ret
+  - CRUDE_ret
+  - INDIAVIX_ret
+  - NASDAQ_ret
+  - NIFTY50_ret
+  - SP500_ret
+  - USDINR_ret
 
 # ---- Portfolio Constraints ----
 top_k: 10
 max_asset_weight: 0.20
 min_trade_value: 1000.0
 initial_nav: 1000.0
+initial_cash: 10000000
+commission_rate: 0.001
+hysteresis_days: 3
 
 # ---- RL Training Hyperparameters ----
 replay_capacity: 100000
@@ -157,7 +163,37 @@ batch_size: 32
 gamma: 0.99
 actor_lr: 0.0001
 critic_lr: 0.001
+tau: 0.005
+Nq: 51
 checkpoint_every_steps: 500
+checkpoint_dir: checkpoints
+
+# ---- Reward Scaling ----
+reward_scales:
+  ret_scale: 0.01
+  vol_scale: 0.02
+  cvar_scale: 0.05
+  mdd_scale: 0.10
+  Rmax: 10.0
+
+# ---- Graph Construction ----
+graph:
+  mode: knn
+  k: 8
+  corr_threshold: 0.60
+  absolute_corr: true
+
+# ---- Encoder Architecture ----
+encoder:
+  d_time: 64
+  d_gnn: 64
+  time_layers: 2
+  gnn_layers: 2
+
+# ---- Agent Architecture ----
+actor_hidden: 128
+actor_mem_dim: 64
+critic_hidden: 512
 
 # ---- Meta-Agent Config ----
 meta_lr: 0.001
@@ -170,20 +206,3 @@ meta_rho_min: 0.05
 meta_rho_max: 0.30
 meta_init_std_w: 0.35
 meta_init_std_rho: 0.20
-
-# ---- Graph Construction ----
-graph:
-  mode: "knn"            # identity | knn | corr_threshold
-  k: 8
-  corr_threshold: 0.60
-  absolute_corr: true
-
-# IMPORTANT: These column names MUST match 'combined_macros_weekly.csv' header
-meta_input:
-  macros:
-    - NIFTY50_ret_last
-    - NASDAQ_ret_last
-    - SP500_ret_last
-    - USDINR_ret_last
-    - INDIAVIX_ret_last
-    - CRUDE_ret_last

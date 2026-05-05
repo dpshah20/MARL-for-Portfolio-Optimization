@@ -1,22 +1,12 @@
 import numpy as np
 
-# Default scaling factors to normalize raw metrics
-# These help bring different units (Returns vs Volatility) into a similar numerical range
-DEFAULT_SCALES = {
-    "ret_scale": 0.01,
-    "vol_scale": 0.02,
-    "cvar_scale": 0.05,
-    "mdd_scale": 0.10,
-    "Rmax": 10.0  # Clipping threshold to prevent exploding gradients
-}
 
-
-def compute_reward_details(components: dict, w_meta: np.ndarray, rho: float, scales: dict = None) -> dict:
+def compute_reward_details(components: dict, w_meta: np.ndarray, rho: float, scales: dict) -> dict:
     """
     Computes a detailed reward breakdown for diagnostics.
+    scales must contain: ret_scale, vol_scale, cvar_scale, mdd_scale, Rmax.
+    Loaded from configs/params.yaml reward_scales block.
     """
-    if scales is None:
-        scales = DEFAULT_SCALES
 
     # Raw components
     ret_raw = float(components.get("ret", 0.0))
@@ -57,26 +47,17 @@ def compute_reward_details(components: dict, w_meta: np.ndarray, rho: float, sca
         "term_vol": float(term_vol),
         "term_cvar": float(term_cvar),
         "term_mdd": float(term_mdd),
-        "raw_reward": float(raw_reward),
+        "raw_reward": float(raw_reward), 
         "exposure": float(exposure),
         "final_reward": float(final_reward),
         "clipped_reward": float(clipped_reward),
     }
 
-def compute_reward(components: dict, w_meta: np.ndarray, rho: float, scales: dict = None) -> float:
+def compute_reward(components: dict, w_meta: np.ndarray, rho: float, scales: dict) -> float:
     """
     Computes the risk-aware reward shaped by the Meta-Agent.
-    
     Formula: Reward = (1 - rho) * [ w_ret*ret - w_vol*vol - w_cvar*cvar - w_mdd*mdd ]
-    
-    Args:
-        components (dict): Daily metrics {'ret', 'vol', 'cvar', 'mdd'}.
-        w_meta (np.ndarray): 4D weight vector [w_ret, w_vol, w_cvar, w_mdd].
-        rho (float): Cash fraction (0.1 to 0.9).
-        scales (dict): Optional scaling factors to normalize raw metrics.
-        
-    Returns:
-        float: The calculated scalar reward.
+    scales must contain: ret_scale, vol_scale, cvar_scale, mdd_scale, Rmax.
     """
-    details = compute_reward_details(components, w_meta, rho, scales=scales)
+    details = compute_reward_details(components, w_meta, rho, scales)
     return details["clipped_reward"]

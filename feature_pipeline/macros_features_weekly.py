@@ -16,7 +16,7 @@ from typing import List
 # ----------------------------------------------------------
 # Aggregate daily macro data to weekly resolution
 # ----------------------------------------------------------
-def aggregate_weekly(daily_macro_df: pd.DataFrame, date_col: str = "Date") -> pd.DataFrame:
+def aggregate_weekly(daily_macro_df: pd.DataFrame, date_col: str = "date") -> pd.DataFrame:
     df = daily_macro_df.copy()
     df[date_col] = pd.to_datetime(df[date_col])
     df = df.set_index(date_col).sort_index()
@@ -39,7 +39,7 @@ def select_meta_features(weekly_df: pd.DataFrame, include_patterns: List[str] = 
     if include_patterns is None:
         return weekly_df
 
-    cols = ["Date"]
+    cols = ["date"]
     for p in include_patterns:
         cols += [c for c in weekly_df.columns if p in c]
     # ensure unique ordering
@@ -50,14 +50,14 @@ def select_meta_features(weekly_df: pd.DataFrame, include_patterns: List[str] = 
 # Main: build + save weekly macro dataset
 # ----------------------------------------------------------
 if __name__ == "__main__":
-    input_path = "data/macros/combined_macros.csv"
-    output_path = "data/macros/combined_macros_weekly.csv"
+    input_path = "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\combined_macros.csv"
+    output_path = "F:\\MARL-for-Portfolio-Optimization\\data\\macros\\combined_macros_weekly.csv"
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"{input_path} not found. Run macros_preprocessor.py first.")
 
     print(f"📘 Loading daily macro data from: {input_path}")
-    df = pd.read_csv(input_path, parse_dates=["Date"])
+    df = pd.read_csv(input_path, parse_dates=["date"])
 
     print("📊 Aggregating to weekly frequency...")
     weekly = aggregate_weekly(df)
