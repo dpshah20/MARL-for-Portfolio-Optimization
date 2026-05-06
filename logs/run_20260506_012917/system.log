@@ -1,0 +1,114 @@
+2026-05-06 01:29:17,429 | INFO | Starting Session in Mode: train
+2026-05-06 01:29:17,429 | INFO | Random seed: 42
+2026-05-06 01:29:23,237 | INFO | Meta-Agent initialized. Input Dim: 16 (Macros=6)
+2026-05-06 01:29:23,864 | INFO | [TrainerRL] Loaded 623 weekly macro records.
+2026-05-06 01:29:23,871 | INFO | Found data for ticker: ABB
+2026-05-06 01:29:23,875 | INFO | Found data for ticker: ADANIENSOL
+2026-05-06 01:29:23,878 | INFO | Found data for ticker: ADANIENT
+2026-05-06 01:29:23,882 | INFO | Found data for ticker: ADANIGREEN
+2026-05-06 01:29:23,883 | INFO | Found data for ticker: ADANIPORTS
+2026-05-06 01:29:23,892 | INFO | Found data for ticker: ADANIPOWER
+2026-05-06 01:29:23,896 | INFO | Found data for ticker: AMBUJACEM
+2026-05-06 01:29:23,898 | INFO | Found data for ticker: APOLLOHOSP
+2026-05-06 01:29:23,901 | INFO | Found data for ticker: ASIANPAINT
+2026-05-06 01:29:23,902 | INFO | Found data for ticker: AXISBANK
+2026-05-06 01:29:23,906 | INFO | Found data for ticker: BAJAJ-AUTO
+2026-05-06 01:29:23,908 | INFO | Found data for ticker: BAJAJFINSV
+2026-05-06 01:29:23,909 | INFO | Found data for ticker: BAJAJHFL
+2026-05-06 01:29:23,912 | INFO | Found data for ticker: BAJAJHLDNG
+2026-05-06 01:29:23,918 | INFO | Found data for ticker: BAJFINANCE
+2026-05-06 01:29:23,922 | INFO | Found data for ticker: BANKBARODA
+2026-05-06 01:29:23,924 | INFO | Found data for ticker: BEL
+2026-05-06 01:29:23,926 | INFO | Found data for ticker: BHARTIARTL
+2026-05-06 01:29:23,929 | INFO | Found data for ticker: BOSCHLTD
+2026-05-06 01:29:23,931 | INFO | Found data for ticker: BPCL
+2026-05-06 01:29:23,933 | INFO | Found data for ticker: BRITANNIA
+2026-05-06 01:29:23,936 | INFO | Found data for ticker: CANBK
+2026-05-06 01:29:23,938 | INFO | Found data for ticker: CGPOWER
+2026-05-06 01:29:23,940 | INFO | Found data for ticker: CHOLAFIN
+2026-05-06 01:29:23,943 | INFO | Found data for ticker: CIPLA
+2026-05-06 01:29:23,945 | INFO | Found data for ticker: COALINDIA
+2026-05-06 01:29:23,947 | INFO | Found data for ticker: DIVISLAB
+2026-05-06 01:29:23,949 | INFO | Found data for ticker: DLF
+2026-05-06 01:29:23,950 | INFO | Found data for ticker: DMART
+2026-05-06 01:29:23,952 | INFO | Found data for ticker: DRREDDY
+2026-05-06 01:29:23,956 | INFO | Found data for ticker: EICHERMOT
+2026-05-06 01:29:23,961 | INFO | Found data for ticker: ENRIN
+2026-05-06 01:29:23,963 | INFO | Found data for ticker: ETERNAL
+2026-05-06 01:29:23,963 | INFO | Found data for ticker: GAIL
+2026-05-06 01:29:23,968 | INFO | Found data for ticker: GODREJCP
+2026-05-06 01:29:23,977 | INFO | Found data for ticker: GRASIM
+2026-05-06 01:29:23,978 | INFO | Found data for ticker: HAL
+2026-05-06 01:29:23,980 | INFO | Found data for ticker: HAVELLS
+2026-05-06 01:29:23,982 | INFO | Found data for ticker: HCLTECH
+2026-05-06 01:29:23,985 | INFO | Found data for ticker: HDFCBANK
+2026-05-06 01:29:23,994 | INFO | Found data for ticker: HDFCLIFE
+2026-05-06 01:29:24,009 | INFO | Found data for ticker: HINDALCO
+2026-05-06 01:29:24,018 | INFO | Found data for ticker: HINDUNILVR
+2026-05-06 01:29:24,023 | INFO | Found data for ticker: HINDZINC
+2026-05-06 01:29:24,025 | INFO | Found data for ticker: HYUNDAI
+2026-05-06 01:29:24,026 | INFO | Found data for ticker: ICICIBANK
+2026-05-06 01:29:24,029 | INFO | Found data for ticker: ICICIGI
+2026-05-06 01:29:24,033 | INFO | Found data for ticker: INDHOTEL
+2026-05-06 01:29:24,038 | INFO | Found data for ticker: INDIGO
+2026-05-06 01:29:24,056 | INFO | Found data for ticker: INFY
+2026-05-06 01:29:24,061 | INFO | Found data for ticker: IOC
+2026-05-06 01:29:24,066 | INFO | Found data for ticker: IRFC
+2026-05-06 01:29:24,075 | INFO | Found data for ticker: ITC
+2026-05-06 01:29:24,079 | INFO | Found data for ticker: JINDALSTEL
+2026-05-06 01:29:24,083 | INFO | Found data for ticker: JIOFIN
+2026-05-06 01:29:24,089 | INFO | Found data for ticker: JSWENERGY
+2026-05-06 01:29:24,093 | INFO | Found data for ticker: JSWSTEEL
+2026-05-06 01:29:24,096 | INFO | Found data for ticker: KOTAKBANK
+2026-05-06 01:29:24,097 | INFO | Found data for ticker: LICI
+2026-05-06 01:29:24,101 | INFO | Found data for ticker: LODHA
+2026-05-06 01:29:24,103 | INFO | Found data for ticker: LT
+2026-05-06 01:29:24,107 | INFO | Found data for ticker: M&M
+2026-05-06 01:29:24,110 | INFO | Found data for ticker: MARUTI
+2026-05-06 01:29:24,113 | INFO | Found data for ticker: MAXHEALTH
+2026-05-06 01:29:24,114 | INFO | Found data for ticker: MAZDOCK
+2026-05-06 01:29:24,116 | INFO | Found data for ticker: MOTHERSON
+2026-05-06 01:29:24,118 | INFO | Found data for ticker: NAUKRI
+2026-05-06 01:29:24,119 | INFO | Found data for ticker: NESTLEIND
+2026-05-06 01:29:24,123 | INFO | Found data for ticker: NTPC
+2026-05-06 01:29:24,128 | INFO | Found data for ticker: ONGC
+2026-05-06 01:29:24,133 | INFO | Found data for ticker: PFC
+2026-05-06 01:29:24,135 | INFO | Found data for ticker: PIDILITIND
+2026-05-06 01:29:24,136 | INFO | Found data for ticker: PNB
+2026-05-06 01:29:24,138 | INFO | Found data for ticker: POWERGRID
+2026-05-06 01:29:24,139 | INFO | Found data for ticker: RECLTD
+2026-05-06 01:29:24,141 | INFO | Found data for ticker: RELIANCE
+2026-05-06 01:29:24,142 | INFO | Found data for ticker: SBILIFE
+2026-05-06 01:29:24,145 | INFO | Found data for ticker: SBIN
+2026-05-06 01:29:24,146 | INFO | Found data for ticker: SHREECEM
+2026-05-06 01:29:24,147 | INFO | Found data for ticker: SHRIRAMFIN
+2026-05-06 01:29:24,149 | INFO | Found data for ticker: SIEMENS
+2026-05-06 01:29:24,150 | INFO | Found data for ticker: SOLARINDS
+2026-05-06 01:29:24,150 | INFO | Found data for ticker: SUNPHARMA
+2026-05-06 01:29:24,151 | INFO | Found data for ticker: TATACONSUM
+2026-05-06 01:29:24,152 | INFO | Found data for ticker: TATAPOWER
+2026-05-06 01:29:24,154 | INFO | Found data for ticker: TATASTEEL
+2026-05-06 01:29:24,158 | INFO | Found data for ticker: TCS
+2026-05-06 01:29:24,161 | INFO | Found data for ticker: TECHM
+2026-05-06 01:29:24,161 | INFO | Found data for ticker: TITAN
+2026-05-06 01:29:24,161 | INFO | Found data for ticker: TMPV
+2026-05-06 01:29:24,161 | INFO | Found data for ticker: TORNTPHARM
+2026-05-06 01:29:24,165 | INFO | Found data for ticker: TRENT
+2026-05-06 01:29:24,165 | INFO | Found data for ticker: TVSMOTOR
+2026-05-06 01:29:24,167 | INFO | Found data for ticker: ULTRACEMCO
+2026-05-06 01:29:24,168 | INFO | Found data for ticker: UNITDSPR
+2026-05-06 01:29:24,168 | INFO | Found data for ticker: VBL
+2026-05-06 01:29:24,172 | INFO | Found data for ticker: VEDL
+2026-05-06 01:29:24,172 | INFO | Found data for ticker: WIPRO
+2026-05-06 01:29:24,172 | INFO | Found data for ticker: ZYDUSLIFE
+2026-05-06 01:29:24,175 | INFO | Starting Data Stream...
+2026-05-06 01:29:35,677 | INFO | [Phase Switch] TRAIN phase starting at 2015-07-06
+2026-05-06 01:47:26,871 | INFO | Saved checkpoint to logs\run_20260506_012917\checkpoints\ckpt_step_500.pt
+2026-05-06 02:01:09,773 | INFO | Saved checkpoint to logs\run_20260506_012917\checkpoints\ckpt_step_1000.pt
+2026-05-06 02:13:07,303 | INFO | [Phase Switch] TEST phase starting at 2021-07-01
+2026-05-06 02:13:22,443 | INFO | Saved checkpoint to logs\run_20260506_012917\checkpoints\ckpt_step_1500.pt
+2026-05-06 02:19:02,743 | INFO | Saved checkpoint to logs\run_20260506_012917\checkpoints\ckpt_step_2000.pt
+2026-05-06 02:24:35,167 | INFO | Saved checkpoint to logs\run_20260506_012917\checkpoints\ckpt_step_2500.pt
+2026-05-06 02:26:31,337 | INFO | Reached configured test_end_date (2026-04-30). Stopping.
+2026-05-06 02:26:31,370 | INFO | Saved checkpoint to logs\run_20260506_012917\checkpoints\ckpt_step_2671.pt
+2026-05-06 02:26:31,371 | INFO | Session Saved. Exiting.

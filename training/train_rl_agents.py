@@ -1,7 +1,9 @@
 import os
+import random
 import numpy as np
 import pandas as pd
 import torch
+import torch.optim as optim
 from collections import deque
 
 from dataset.dataset_windows import build_windows_from_paths
@@ -58,6 +60,12 @@ class TrainerRL:
 
         self.replay = ReplayBuffer(capacity=cfg["replay_capacity"])
 
+        # Small raw-feature buffer for encoder+actor joint updates.
+        # Each sample (1,N,W,F) = (1,99,126,24) ≈ 60MB of LSTM activations with grad.
+        # Batch=4 → ~240MB peak, safe on CPU. maxlen=8 is sufficient.
+        self.raw_buffer = deque(maxlen=8)
+        self.encoder_opt = optim.Adam(self.encoder.parameters(), lr=cfg["actor_lr"])
+
         graph_cfg = cfg["graph"]
         self.graph_mode = graph_cfg["mode"]
         self.graph_k = int(graph_cfg["k"])
@@ -109,7 +117,7 @@ class TrainerRL:
         self.current_w = np.array([1.0, 0.0, 0.0, 0.0])
         self.current_rho = 0.05
         self.week_start_nav = self.portfolio.nav
-        self.prev_week_stats = np.zeros(4)
+        self.prev_week_stats = np.zeros(5)  # [weekly_ret, vol, cvar, mdd, 5d_ret]
         self.prev_action = np.zeros(5)
         self.prev_log_prob = None
         self.prev_entropy = None
@@ -156,8 +164,12 @@ class TrainerRL:
         step_count: int,
         valid_asset_mask: np.ndarray = None,
         allow_learning: bool = True,
+        allow_meta_learning: bool = None,
         phase: str = "train",
     ):
+        if allow_meta_learning is None:
+            allow_meta_learning = allow_learning
+
         date = pd.to_datetime(date_str)
         week_num = date.isocalendar()[1]
 
@@ -201,13 +213,21 @@ class TrainerRL:
 
         scores_np = scores.cpu().numpy()
 
+        # Store raw features for encoder+actor joint update (Fix #2)
+        if allow_learning:
+            self.raw_buffer.append((X_tensor.cpu(), A.cpu()))
+
+        # Exploration noise on actor scores during training (Fix #9)
+        if allow_learning and phase == "train":
+            scores_np = scores_np + np.random.normal(0, 0.1, scores_np.shape)
+
         # ---- Weekly meta update
         if week_num != self.current_week_num:
             self._handle_weekly_update(
                 date,
                 date_str,
                 step_count,
-                allow_learning=allow_learning,
+                allow_learning=allow_meta_learning,
                 phase=phase,
             )
 
@@ -385,8 +405,27 @@ class TrainerRL:
             dones
         )
 
+        # Encoder + Actor joint update using fresh encoder pass (Fix #2).
+        # Samples from raw_buffer, re-encodes with grad so encoder also learns.
+        # Use ENCODER_BATCH=4 (not self.batch_size=32) to avoid OOM.
+        ENCODER_BATCH = 4
+        actor_loss = 0.0
+        actor_grad_norm = 0.0
+        if len(self.raw_buffer) >= ENCODER_BATCH:
+            raw_batch = random.sample(list(self.raw_buffer), ENCODER_BATCH)
+            X_list = torch.cat([s[0] for s in raw_batch], dim=0).to(self.device)  # (4, N, W, F)
+            A_list = torch.stack([s[1] for s in raw_batch], dim=0).to(self.device)  # (4, N, N)
 
-        actor_loss = self.agent.update_actor(states, hidden_in=hidden_in)
+            self.encoder_opt.zero_grad()
+            z_fresh = self.encoder(X_list, A_list)  # (4, N, d_gnn) with grad
+
+            B_raw = z_fresh.shape[0]
+            hidden_fresh = torch.zeros(B_raw, self.agent.actor.mem_dim, device=self.device)
+            actor_loss, actor_grad_norm = self.agent.update_actor(z_fresh, hidden_in=hidden_fresh)
+            self.encoder_opt.step()
+        else:
+            # Fall back to detached z until raw_buffer is warm
+            actor_loss, actor_grad_norm = self.agent.update_actor(states, hidden_in=hidden_in)
 
         self.agent.update_targets()
 
@@ -396,6 +435,7 @@ class TrainerRL:
                 "phase": "train",
                 "a_loss": actor_loss,
                 "c_loss": critic_loss,
+                "actor_grad_norm": actor_grad_norm,
                 "w_mean": actions.mean().item(),
                 "w_std": actions.std().item(),
             }
@@ -424,6 +464,7 @@ class TrainerRL:
                     self.rolling_metrics["vol"],
                     self.rolling_metrics["cvar"],
                     self.rolling_metrics["mdd"],
+                    float(np.sum(list(self.ret_history)[-5:])),  # 5-day rolling return (Fix #8)
                 ]
             )
 

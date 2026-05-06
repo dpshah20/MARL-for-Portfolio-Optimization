@@ -156,7 +156,7 @@ class RunLogger:
             data.get("phase", "train"),
             f"{data.get('a_loss', 0):.6f}",
             f"{data.get('c_loss', 0):.6f}",
-            "0.0",
+            f"{data.get('actor_grad_norm', 0.0):.6f}",
             f"{data.get('w_mean', 0):.4f}",
             f"{data.get('w_std', 0):.4f}"
         ])

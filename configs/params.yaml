@@ -150,11 +150,11 @@ feature_cols:
 
 # ---- Portfolio Constraints ----
 top_k: 10
-max_asset_weight: 0.20
+max_asset_weight: 0.30
 min_trade_value: 1000.0
 initial_nav: 1000.0
 initial_cash: 10000000
-commission_rate: 0.001
+commission_rate: 0.0
 hysteresis_days: 3
 
 # ---- RL Training Hyperparameters ----
@@ -200,8 +200,9 @@ meta_lr: 0.001
 meta_hidden_dim: 128
 meta_entropy_coef: 0.001
 meta_baseline_momentum: 0.95
-meta_warmup_steps: 250
+meta_warmup_steps: 50
 meta_transition_steps: 50
+meta_learn_in_test: true
 meta_rho_min: 0.05
 meta_rho_max: 0.30
 meta_init_std_w: 0.35

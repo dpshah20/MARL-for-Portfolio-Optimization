@@ -121,10 +121,10 @@ class MADDPG:
         loss = -q.mean()
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 1.0)
+        grad_norm = torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 1.0).item()
         self.actor_opt.step()
 
-        return loss.item()
+        return loss.item(), grad_norm
 
 
     def update_targets(self):

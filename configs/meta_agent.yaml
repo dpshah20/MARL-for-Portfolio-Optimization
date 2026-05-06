@@ -10,3 +10,4 @@ meta_input:
     - portfolio_weekly_return
     - portfolio_weekly_vol
     - portfolio_weekly_mdd
+    - portfolio_5d_return

@@ -13,7 +13,7 @@ class Portfolio:
       - nav: normalized NAV (starting 1000)
     """
 
-    def __init__(self, tickers, initial_nav: float = 1000.0, initial_cash: float = 1_00_00_000.0, commission_rate: float = 0.001):
+    def __init__(self, tickers, initial_nav: float = 1000.0, initial_cash: float = 1_00_00_000.0, commission_rate: float = 0.0):
         self.tickers = list(tickers)
         self.holdings = {t: 0 for t in self.tickers}
         self.avg_cost = {t: 0.0 for t in self.tickers}
@@ -21,7 +21,6 @@ class Portfolio:
         
         self.cash = float(initial_cash)
         self.initial_cash = float(initial_cash)
-        self.commission_rate = float(commission_rate)
         self.nav = float(initial_nav)
         self.total_value = float(initial_cash)
 
@@ -67,77 +66,81 @@ class Portfolio:
         self.total_value = market_val + self.cash
 
         # 2. Determine Investable Portion
-        # If target_cash = 0.50 (50%), we must hold 50% in cash.
-        # So we can only invest the remaining 50%.
         investable_capital = self.total_value * (1.0 - target_cash)
         
         # 3. Calculate Target Rupee Value per Stock
-        # target_weights from Actor usually sum to ~1.0 (Softmax).
-        # We map that 1.0 to the "Investable Capital" portion only.
         max_value_per_stock = max_weight * self.total_value
         desired_values = {}
         for t in self.tickers:
             w = target_weights.get(t, 0.0)
             desired_values[t] = min(w * investable_capital, max_value_per_stock)
 
-        # 4. Calculate Shares to Buy/Sell
+        # 4. Calculate delta shares; apply rebalancing threshold (Fix #5)
         trades_diff = {}
         for t in self.tickers:
             price = float(prices.get(t, 0.0)) or 0.0
-            if price <= 0: 
+            if price <= 0:
                 continue
-            
-            current_shares = self.holdings.get(t, 0)
-            # Floor to lot size
-            target_shares = math.floor(desired_values[t] / price / lot_size) * lot_size
-            
-            delta = int(target_shares - current_shares)
-            
-            # Filter tiny trades to save commissions/noise
-            if abs(delta * price) >= min_trade_value:
-                trades_diff[t] = delta
 
-        # 5. Execute Trades
-        # Note: We process all trades, but practically sells (negative delta) add cash immediately,
-        # allowing buys (positive delta) to proceed.
+            current_shares = self.holdings.get(t, 0)
+            target_shares = math.floor(desired_values[t] / price / lot_size) * lot_size
+            delta = int(target_shares - current_shares)
+
+            # Skip tiny rupee moves
+            if abs(delta * price) < min_trade_value:
+                continue
+
+            # Skip if weight change is below 5% threshold (Fix #5)
+            current_weight = (current_shares * price) / self.total_value if self.total_value > 0 else 0.0
+            target_weight = desired_values[t] / self.total_value if self.total_value > 0 else 0.0
+            if abs(target_weight - current_weight) < 0.05:
+                continue
+
+            trades_diff[t] = delta
+
+        # 5. Execute Trades — sells first, then buys (Fix #3)
+        # Processing sells first frees cash so buys can draw on it.
         trades_list = []
-        
-        for t, delta in trades_diff.items():
+        ordered_trades = (
+            [(t, d) for t, d in trades_diff.items() if d < 0] +
+            [(t, d) for t, d in trades_diff.items() if d > 0]
+        )
+
+        for t, delta in ordered_trades:
             price = float(prices.get(t, 0.0))
-            if price <= 0: continue
+            if price <= 0:
+                continue
 
             current_shares = self.holdings.get(t, 0)
             avg_cost_before = float(self.avg_cost.get(t, 0.0))
-            cost = delta * price
-            commission = abs(cost) * self.commission_rate
-            total_cost = cost + commission
-            realized_pnl = 0.0
-            
-            # Safety check: Do we have cash for a BUY?
-            if delta > 0 and total_cost > self.cash:
-                # Skip buy if insufficient funds 
-                # (In a real system, we'd scale down, here we skip for safety)
-                continue
+            cost = delta * price   # negative for sells
+            commission = 0.0       # commission removed (Fix #6)
+            total_cost = cost      # no commission
 
+            # For buys: scale down proportionally if cash is insufficient (Fix #4)
+            if delta > 0 and total_cost > self.cash:
+                affordable_shares = math.floor(self.cash / price / lot_size) * lot_size
+                if affordable_shares <= 0:
+                    continue
+                delta = affordable_shares
+                cost = delta * price
+                total_cost = cost
+
+            realized_pnl = 0.0
             if delta < 0:
-                sell_qty = abs(delta)
-                effective_sell_price = price
-                realized_pnl = (effective_sell_price - avg_cost_before) * sell_qty - commission
-                
+                realized_pnl = (price - avg_cost_before) * abs(delta)
+
             self.holdings[t] += delta
             self.cash -= total_cost
 
             if delta > 0:
-                buy_qty = delta
                 prev_qty = current_shares
                 new_qty = self.holdings[t]
                 if new_qty > 0:
-                    gross_prev_cost = prev_qty * avg_cost_before
-                    gross_new_cost = buy_qty * price + commission
-                    self.avg_cost[t] = (gross_prev_cost + gross_new_cost) / new_qty
+                    self.avg_cost[t] = (prev_qty * avg_cost_before + delta * price) / new_qty
             elif self.holdings[t] <= 0:
                 self.avg_cost[t] = 0.0
-            
+
             trades_list.append({
                 "ticker": t,
                 "action": "BUY" if delta > 0 else "SELL",
@@ -146,7 +149,7 @@ class Portfolio:
                 "sell_shares": abs(delta) if delta < 0 else 0,
                 "price": price,
                 "value": cost,
-                "comm": commission,
+                "comm": 0.0,
                 "avg_cost_before": avg_cost_before,
                 "avg_cost_after": float(self.avg_cost.get(t, 0.0)),
                 "realized_pnl": realized_pnl,

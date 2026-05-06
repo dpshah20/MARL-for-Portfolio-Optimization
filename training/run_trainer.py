@@ -84,10 +84,9 @@ def main():
     ckpt_mgr = CheckpointManager(ckpt_dir, logger=logger)
 
     # --- 3. Initialize The Brain (Meta-Agent) ---
-    # Input Dim = Count(Macro Features) + 4 (Prev Week Stats) + 5 (Prev Action Logits)
-    # We need to know how many macro columns we are using
+    # Input Dim = Count(Macro Features) + 5 (Prev Week Stats: ret,vol,cvar,mdd,5d_ret) + 5 (Prev Action)
     macro_cols = cfg["meta_input"]["macros"]
-    meta_input_dim = len(macro_cols) + 4 + 5
+    meta_input_dim = len(macro_cols) + 5 + 5
 
     device = cfg["device"]
     meta_agent = MetaAgent(
@@ -170,6 +169,7 @@ def main():
     test_start_ts = pd.to_datetime(test_start_date) if test_start_date else None
     test_end_ts = pd.to_datetime(test_end_date) if test_end_date else None
     current_phase = None
+    meta_learn_in_test = bool(cfg.get("meta_learn_in_test", True))
 
     # Create Generator
     data_gen = windows_generator_from_paths(
@@ -214,6 +214,7 @@ def main():
                 step,
                 valid_asset_mask=valid_asset_mask,
                 allow_learning=(phase == "train"),
+                allow_meta_learning=(phase == "train") or meta_learn_in_test,
                 phase=phase,
             )
             
